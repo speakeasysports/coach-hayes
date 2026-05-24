@@ -35,7 +35,7 @@ export default function AboutPage() {
           <p>
             Coach Hayes is a 20-year high school football coach based in
             Calhoun, Georgia. He produces in-depth coaching analysis, player
-            breakdowns, and recruit evaluations from a coach's perspective —
+            breakdowns, and recruit evaluations from a coach’s perspective —
             with an emphasis on UGA.
           </p>
           <p>

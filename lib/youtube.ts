@@ -1,7 +1,10 @@
 import { YOUTUBE_CHANNEL_ID } from "./links";
+import type { VideoId } from "./content/types";
+
+export type { VideoId } from "./content/types";
 
 export type Video = {
-  id: string;
+  id: VideoId;
   title: string;
   url: string;
   published: string;

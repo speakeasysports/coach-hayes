@@ -45,7 +45,7 @@ function Hero() {
             <span className="text-brand-red">fundamentals</span> of football.
           </h1>
           <p className="max-w-xl text-pretty text-lg text-zinc-300">
-            X's &amp; O's from a coach's perspective. Player breakdowns, recruit
+            X’s &amp; O’s from a coach’s perspective. Player breakdowns, recruit
             evaluations, and weekly Georgia film — every name and every play
             linked to a video.
           </p>

@@ -20,6 +20,37 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Content
+
+Recruits and plays live as one JSON file per entity under `content/`:
+
+```
+content/
+  recruits/<slug>.json   # one recruit per file — fields in lib/content/types.ts
+  plays/<slug>.json      # one play per file — fields in lib/content/types.ts
+```
+
+Add a new recruit by dropping a JSON file matching `RecruitSchema` (see `lib/content/types.ts`). Same for plays. Filenames don't have to match `id`, but keeping them aligned makes things easier to find.
+
+Validate everything with:
+
+```bash
+npm run validate:content
+```
+
+The validator checks every file against the Zod schema and reports problems with file paths and field locations. It exits non-zero on failure, so it's safe to run in CI.
+
+Page code reads content through a single import:
+
+```ts
+import { content } from "@/lib/content";
+
+const recruits = await content.getRecruits();
+const recruit = await content.getRecruitById("jaxon-dollar");
+```
+
+The file-backed store can be swapped for a headless CMS later by replacing the implementation in `lib/content/index.ts` — page code stays put.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
