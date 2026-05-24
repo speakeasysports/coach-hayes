@@ -13,6 +13,20 @@ export type Video = {
 
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
 
+export type ThumbnailQuality = "default" | "mq" | "hq" | "sd" | "maxres";
+
+export function getThumbnailUrl(
+  videoId: VideoId,
+  quality: ThumbnailQuality = "hq",
+): string {
+  const file = quality === "default" ? "default" : `${quality}default`;
+  return `https://i.ytimg.com/vi/${videoId}/${file}.jpg`;
+}
+
+export function getWatchUrl(videoId: VideoId): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 function decodeEntities(s: string): string {
   return s
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
