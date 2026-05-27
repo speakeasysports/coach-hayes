@@ -196,3 +196,4 @@ This is Next.js 16, not what most LLM training data assumes. See `AGENTS.md`
 and the bundled docs under `node_modules/next/dist/docs/` before changing
 routing, server components, or `searchParams` behavior. `app/big-board/page.tsx`
 shows the async-`searchParams` pattern in use.
+# coach-hayes
