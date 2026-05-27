@@ -1,25 +1,10 @@
 import Link from "next/link";
-import {
-  RECRUIT_STATUSES,
-  type Recruit,
-  type RecruitStatus,
-} from "@/lib/content/types";
+import { STATUSES, type Recruit, type Status } from "@/lib/board";
 
 type Props = {
   recruits: Recruit[];
-  activeStatus?: RecruitStatus;
+  activeStatus?: Status;
   activeClass?: number;
-};
-
-const STATUS_LABELS: Record<RecruitStatus, string> = {
-  target: "Target",
-  offered: "Offered",
-  visit: "Visit",
-  commit: "Commit",
-  signed: "Signed",
-  "flip-watch": "Flip watch",
-  decommit: "Decommit",
-  "off-board": "Off board",
 };
 
 export function FilterBar({ recruits, activeStatus, activeClass }: Props) {
@@ -36,7 +21,7 @@ export function FilterBar({ recruits, activeStatus, activeClass }: Props) {
     ? recruits.filter((r) => r.status === activeStatus)
     : recruits;
 
-  const statusCounts = new Map<RecruitStatus, number>();
+  const statusCounts = new Map<Status, number>();
   for (const r of classScoped) {
     statusCounts.set(r.status, (statusCounts.get(r.status) ?? 0) + 1);
   }
@@ -72,19 +57,19 @@ export function FilterBar({ recruits, activeStatus, activeClass }: Props) {
         >
           All
         </Chip>
-        {RECRUIT_STATUSES.map((s) => (
+        {STATUSES.map((s) => (
           <Chip
             key={s}
             href={buildHref("status", s)}
             active={activeStatus === s}
             count={statusCounts.get(s) ?? 0}
           >
-            {STATUS_LABELS[s]}
+            {s}
           </Chip>
         ))}
       </ChipRow>
 
-      {yearOptions.length > 0 && (
+      {yearOptions.length > 1 && (
         <ChipRow label="Class">
           <Chip
             href={buildHref("class", undefined)}

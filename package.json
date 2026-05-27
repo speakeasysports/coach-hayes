@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "validate:content": "tsx scripts/validate-content.ts"
+    "validate:content": "tsx scripts/validate-content.ts",
+    "match:youtube": "tsx scripts/match-youtube.ts"
   },
   "dependencies": {
     "next": "16.2.6",

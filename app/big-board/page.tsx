@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { content } from "@/lib/content";
 import {
+  getBoard,
   POSITIONS,
-  RECRUIT_STATUSES,
+  STATUSES,
   type Position,
   type Recruit,
-  type RecruitStatus,
-} from "@/lib/content/types";
-import {
-  recruitsByClassYear,
-  recruitsByStatus,
-} from "@/lib/content/queries";
+  type Status,
+} from "@/lib/board";
+
 import { FilterBar } from "@/components/site/filter-bar";
 import { RecruitCard } from "@/components/site/recruit-card";
 
@@ -23,10 +20,10 @@ export const metadata: Metadata = {
 
 type Search = { status?: string; class?: string };
 
-function parseStatus(raw: string | undefined): RecruitStatus | undefined {
+function parseStatus(raw: string | undefined): Status | undefined {
   if (!raw) return undefined;
-  return (RECRUIT_STATUSES as readonly string[]).includes(raw)
-    ? (raw as RecruitStatus)
+  return (STATUSES as readonly string[]).includes(raw)
+    ? (raw as Status)
     : undefined;
 }
 
@@ -51,7 +48,7 @@ export default async function BigBoardPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const all = await content.getRecruits();
+  const all = await getBoard();
 
   if (all.length === 0) {
     return <EmptyBoard />;
@@ -62,8 +59,8 @@ export default async function BigBoardPage({
   const activeClass = parseClass(sp.class);
 
   let filtered = all;
-  if (activeStatus) filtered = recruitsByStatus(filtered, activeStatus);
-  if (activeClass) filtered = recruitsByClassYear(filtered, activeClass);
+  if (activeStatus) filtered = filtered.filter((r) => r.status === activeStatus);
+  if (activeClass) filtered = filtered.filter((r) => r.classYear === activeClass);
 
   const groups = groupByPosition(filtered);
 
@@ -124,8 +121,8 @@ function PositionSection({
         </span>
       </h2>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {recruits.map((r) => (
-          <li key={r.id}>
+        {recruits.map((r, i) => (
+          <li key={`${r.name}-${i}`}>
             <RecruitCard recruit={r} />
           </li>
         ))}
@@ -138,7 +135,7 @@ function EmptyFilterState({
   activeStatus,
   activeClass,
 }: {
-  activeStatus?: RecruitStatus;
+  activeStatus?: Status;
   activeClass?: number;
 }) {
   const parts: string[] = [];

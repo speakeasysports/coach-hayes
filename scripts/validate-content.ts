@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { PlaySchema, RecruitSchema } from "../lib/content/types";
+import { PlaySchema } from "../lib/content/types";
 
 type Collection<T> = {
   label: string;
@@ -11,8 +11,9 @@ type Collection<T> = {
 
 const ROOT = path.resolve(process.cwd(), "content");
 
+// Recruits now live in a Google Sheet (see README → "Big Board"); only plays
+// remain file-backed.
 const COLLECTIONS: Collection<unknown>[] = [
-  { label: "recruits", dir: path.join(ROOT, "recruits"), schema: RecruitSchema },
   { label: "plays", dir: path.join(ROOT, "plays"), schema: PlaySchema },
 ];
 
