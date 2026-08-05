@@ -10,7 +10,8 @@
 //   getBoardDiagnostics()  → { recruits, errors } for /admin/refresh
 //
 // To force an immediate refresh after editing the sheet, call
-// revalidateTag(BOARD_REVALIDATE_TAG) from a server action.
+// updateTag(BOARD_REVALIDATE_TAG) from a server action. (Next.js 16 replaced
+// single-arg revalidateTag with updateTag for the server-action case.)
 
 import { cache } from "react";
 import { fetchBoard, BOARD_REVALIDATE_TAG } from "./sheet";

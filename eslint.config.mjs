@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Claude Code worktrees live inside the repo. Without this, linting the
+    // parent picks up every worktree's build output.
+    ".claude/worktrees/**",
   ]),
 ]);
 
