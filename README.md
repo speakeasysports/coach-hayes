@@ -23,6 +23,8 @@ X's & O's from a coach's perspective, with an emphasis on UGA. Built on Next.js
 app/                    Next.js 16 app router pages
   big-board/page.tsx    Phase 3 — recruit board, reads from lib/board
   admin/refresh/        Phase 3.5 — refresh button + sheet diagnostics
+  admin/review/         review queue for auto-tagged videos (see below)
+  admin/login/          password gate for /admin/* (with proxy.ts + lib/admin)
   playbook/             Phase 4 stub
   about/                static
 components/site/        site-specific UI
@@ -121,6 +123,25 @@ resting on a lone surname or an initial stays below `AUTO_PUBLISH_CONFIDENCE`
 as does the one unknown-duration livestream. Untagged videos publish as plain
 content. Current backfill: 455 videos → 286 published, 169 queued for review,
 79 of 237 rostered players linked to ≥1 video.
+
+### Review queue (`/admin/review`)
+
+Works through the needs-review videos, highest confidence first. Per video:
+**Approve & publish**, **Hold** (reviewed but kept off the site), and a ✕ on
+each auto player link to drop a matcher false positive (confidence is
+recomputed; the drop becomes permanent once the video is approved or held —
+until then a re-ingest re-tags it). Both approve and hold stamp `reviewedAt`,
+which makes the video human-owned: ingest keeps syncing its YouTube columns
+but never touches its tags or publish state again.
+
+### Admin auth
+
+Adding real write actions crossed the line where unauthenticated admin was
+acceptable, so `/admin/*` is now behind a password gate: `proxy.ts` redirects
+to `/admin/login` (optimistic check), and every server action re-verifies the
+signed cookie (`lib/admin/auth.ts`). Set `ADMIN_PASSWORD` in `.env`;
+changing it invalidates all sessions. With it unset, the admin area is
+locked and the login page says so.
 
 ## Big Board
 
