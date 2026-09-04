@@ -33,6 +33,9 @@ import type {
   VideoId,
 } from "./contract";
 import { derivePositionGroups, type Position, type PositionGroup } from "@/lib/schema";
+import { parseBoardCsv } from "@/lib/board/sheet";
+import { diffImport, type ExistingPlayer, type ImportPreview } from "@/lib/board/import";
+import type { ImportResult, ImportSource } from "./contract";
 
 const vid = (s: string) => s as VideoId;
 const pid = (s: string) => s as PlayerId;
@@ -327,6 +330,12 @@ function v(o: VideoSeed): MockVideo {
   };
 }
 
+let importSource: ImportSource = {
+  url: null,
+  lastImportedAt: null,
+  lastResult: null,
+};
+
 let syncStatus: SyncStatus = {
   lastSyncAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   state: "ok",
@@ -488,7 +497,7 @@ export const mockRepo: AdminRepository = {
   },
 
   async getPlayers(filter?: PlayerListFilter, opts?): Promise<PlayerListItem[]> {
-    const hasVideos = filter?.hasVideos ?? true;
+    const relevantOnly = filter?.relevantOnly ?? true;
     const q = filter?.search?.toLowerCase().trim();
     let rows = PLAYERS.map((x) => {
       const n = videoCount(x.id);
@@ -499,14 +508,20 @@ export const mockRepo: AdminRepository = {
         status: x.status,
         videoCount: n,
         onBigBoard: x.onBigBoard,
-        isPublishable: n > 0,
+        hasPlayerPage: n > 0,
       } satisfies PlayerListItem;
     });
-    if (hasVideos) rows = rows.filter((r) => r.videoCount > 0);
+    if (relevantOnly)
+      rows = rows.filter((r) => r.videoCount > 0 || r.onBigBoard);
     if (filter?.position) rows = rows.filter((r) => r.position === filter.position);
     if (filter?.status) rows = rows.filter((r) => r.status === filter.status);
     if (q) rows = rows.filter((r) => r.name.toLowerCase().includes(q));
-    rows.sort((a, b) => b.videoCount - a.videoCount || a.name.localeCompare(b.name));
+    rows.sort(
+      (a, b) =>
+        Number(b.onBigBoard) - Number(a.onBigBoard) ||
+        b.videoCount - a.videoCount ||
+        a.name.localeCompare(b.name),
+    );
     const off = opts?.offset ?? 0;
     return rows.slice(off, off + (opts?.limit ?? rows.length));
   },
@@ -571,6 +586,102 @@ export const mockRepo: AdminRepository = {
 
   async listSeries() {
     return SERIES;
+  },
+
+  // ---- sheet import -----------------------------------------------------
+  async getImportSource() {
+    return importSource;
+  },
+
+  async setImportSource(url: string) {
+    importSource = { ...importSource, url };
+  },
+
+  async previewSheetImport(url?: string): Promise<ImportPreview> {
+    const src = url ?? importSource.url;
+    if (!src) throw new Error("No sheet URL configured.");
+
+    const res = await fetch(src, { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error(`Sheet fetch failed: ${res.status} ${res.statusText}`);
+    }
+    const parsed = parseBoardCsv(await res.text());
+
+    const existing: ExistingPlayer[] = PLAYERS.map((p) => ({
+      id: String(p.id),
+      name: p.name,
+      position: p.position,
+      classYear: p.classYear ?? undefined,
+      stars: p.stars,
+      heightIn: p.heightIn,
+      weightLb: p.weightLb,
+      highSchool: p.highSchool,
+      status: p.status,
+      committedTo: p.committedTo,
+      onBigBoard: p.onBigBoard,
+    }));
+
+    return diffImport(src, parsed.recruits, existing, parsed.errors);
+  },
+
+  async applySheetImport(url: string, rowKeys?: string[]): Promise<ImportResult> {
+    const preview = await this.previewSheetImport(url);
+    const wanted = rowKeys ? new Set(rowKeys) : null;
+    let created = 0;
+    let updated = 0;
+
+    for (const row of preview.rows) {
+      if (wanted && !wanted.has(row.key)) continue;
+
+      if (row.kind === "create") {
+        const f = row.fields;
+        PLAYERS.push({
+          id: pid(f.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")),
+          name: f.name,
+          position: f.position,
+          slug: f.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          rosterYears: [],
+          status: f.status,
+          onBigBoard: true,
+          aliases: [],
+          bio: null,
+          stars: f.stars,
+          classYear: f.classYear,
+          committedTo: f.committedTo,
+          // Sheet recruits are not on any CFBD roster — 2027 prospects are
+          // not published by CFBD, which is why the board is hand-entered.
+          cfbdId: null,
+          heightIn: f.heightIn,
+          weightLb: f.weightLb,
+          highSchool: f.highSchool,
+          city: null,
+          state: null,
+        });
+        created++;
+      } else if (row.kind === "update") {
+        const p = PLAYERS.find((x) => String(x.id) === row.playerId);
+        if (!p) continue;
+        const f = row.fields;
+        // Only the fields the sheet owns. Aliases, bio and cfbdId are the
+        // admin's and are never touched by an import.
+        p.classYear = f.classYear;
+        p.stars = f.stars;
+        p.heightIn = f.heightIn;
+        p.weightLb = f.weightLb;
+        p.highSchool = f.highSchool;
+        p.status = f.status;
+        p.committedTo = f.committedTo;
+        p.onBigBoard = true;
+        updated++;
+      }
+    }
+
+    importSource = {
+      url,
+      lastImportedAt: new Date().toISOString(),
+      lastResult: { created, updated },
+    };
+    return { created, updated };
   },
 
   async triggerSync() {
