@@ -30,6 +30,8 @@ tested; this is the only thing between the current state and a live board.
 app/                    Next.js 16 app router pages
   big-board/page.tsx    Phase 3 — recruit board, reads from lib/board
   admin/refresh/        Phase 3.5 — refresh button + sheet diagnostics
+  admin/review/         review queue for auto-tagged videos (see below)
+  admin/login/          password gate for /admin/* (with proxy.ts + lib/admin)
   playbook/             Phase 4 stub
   about/                static
 components/site/        site-specific UI
@@ -52,12 +54,33 @@ lib/
     types.ts, client.ts, index.ts
   youtube.ts            RSS-based latest-videos, thumbnail helpers, URL → ID parser
   links.ts              channel IDs, nav, social link table
+  schema/               shared content vocabulary (store-agnostic; see header)
+  db/                   Drizzle + libSQL persistence layer
+    schema.ts           tables: players, videos, concepts, series + tag links
+    sync.ts             column-ownership guard — the ONLY write path for syncs
+    client.ts           libsql client (file: locally, Turso-ready via env)
+  ingest/               auto-tagging machinery
+    lexicon.ts          the tag pattern lexicon (single source, seeds the DB)
+    matcher.ts          roster → video player matching (ported scoring)
+    tagger.ts           concept/topic/position-group tagging from DB patterns
+  admin/                admin data layer
+    contract.ts         AdminRepository — the UI/store seam
+    mock.ts             in-memory fixtures (swap for the DB impl in repo.ts)
+    repo.ts             the active repository — single swap point
+    auth.ts, session.ts signed-cookie admin auth
+  board/import.ts       Google Sheet → database import (diff + apply)
 content/                empty — create content/plays/ when Phase 4 starts
 scripts/
   validate-content.ts   zod-validates every JSON file in /content
   match-youtube.ts      one-off: match YouTube uploads to roster (see below)
   cfbd-lookup.ts        one-off: probe CFBD by year + name for ID capture
   board-parse-test.ts   one-off: sanity test the sheet CSV parser
+  catalog-analysis.ts   YouTube API → catalog-analysis.json (ingest input)
+  concept-extraction.ts analysis report over the lexicon (imports lib/ingest)
+  schema-fit-test.ts    validates lib/schema against the real 455-video catalog
+  fetch-roster.ts       CFBD Georgia roster → roster-cfbd.json (ingest input)
+  ingest.ts             THE PIPELINE: catalog + roster → SQLite (see below)
+drizzle/                generated SQL migrations (drizzle-kit generate)
 ```
 
 ## Commands
@@ -68,7 +91,72 @@ npm run build             # production build
 npm run lint              # eslint
 npm run validate:content  # check every /content JSON against the Zod schemas
 npm run match:youtube     # YouTube → roster match sheet (see below)
+npm run schema:fit        # validate lib/schema against the real catalog dump
+npm run fetch:roster      # CFBD roster → roster-cfbd.json  (needs CFBD_API_KEY)
+npm run ingest            # run the full ingest pipeline into SQLite
+npm run db:generate       # drizzle-kit generate (after editing lib/db/schema.ts)
+npm run db:migrate        # apply migrations (ingest also does this on start)
+npm run db:studio         # browse the local database
 ```
+
+## Content database & ingest
+
+The video/player/concept content layer lives in SQLite via Drizzle
+(`.data/coach-hayes.db` locally; point `DATABASE_URL` — plus
+`DATABASE_AUTH_TOKEN` — at hosted libsql/Turso to deploy). The shared
+vocabulary in `lib/schema` stays store-agnostic; `lib/db` is the persistence
+detail under it.
+
+Backfill sequence (each step is cached in a local JSON, so re-runs are
+offline and reproducible):
+
+```bash
+npx tsx --env-file=.env scripts/catalog-analysis.ts   # YouTube → catalog-analysis.json
+npm run fetch:roster                                  # CFBD → roster-cfbd.json
+npm run ingest                                        # → .data/coach-hayes.db
+```
+
+Two structural rules, carried from the Sanity evaluation (see the headers in
+`lib/schema/index.ts` and `lib/db/sync.ts`):
+
+1. **Field ownership.** Re-syncs go through `lib/db/sync.ts`, whose upsert
+   helpers can only touch the enumerated synced columns. Headlines, analysis,
+   review state, and hand-added tags (`source='manual'` rows) are structurally
+   unreachable from the pipeline — verified by re-running ingest over edited
+   rows.
+2. **External IDs are content.** `youtubeId` / `cfbdId` are unique lookup
+   columns; every relationship rides internal integer PKs.
+
+The pipeline is idempotent. Videos with `reviewedAt` set are human-owned:
+content columns still sync, tags and publish state are never touched. The
+auto-tagger seeds concept patterns into the DB (`concepts.matchPatterns`), so
+pattern tuning is a row edit, not a deploy.
+
+Publish policy: full-name title matches (score 100) auto-publish; anything
+resting on a lone surname or an initial stays below `AUTO_PUBLISH_CONFIDENCE`
+(80) and lands in the review queue (`published = 0`, `tagConfidence < 80`),
+as does the one unknown-duration livestream. Untagged videos publish as plain
+content. Current backfill: 455 videos → 286 published, 169 queued for review,
+79 of 237 rostered players linked to ≥1 video.
+
+### Review queue (`/admin/review`)
+
+Works through the needs-review videos, highest confidence first. Per video:
+**Approve & publish**, **Hold** (reviewed but kept off the site), and a ✕ on
+each auto player link to drop a matcher false positive (confidence is
+recomputed; the drop becomes permanent once the video is approved or held —
+until then a re-ingest re-tags it). Both approve and hold stamp `reviewedAt`,
+which makes the video human-owned: ingest keeps syncing its YouTube columns
+but never touches its tags or publish state again.
+
+### Admin auth
+
+Adding real write actions crossed the line where unauthenticated admin was
+acceptable, so `/admin/*` is now behind a password gate: `proxy.ts` redirects
+to `/admin/login` (optimistic check), and every server action re-verifies the
+signed cookie (`lib/admin/auth.ts`). Set `ADMIN_PASSWORD` in `.env`;
+changing it invalidates all sessions. With it unset, the admin area is
+locked and the login page says so.
 
 ## Big Board
 

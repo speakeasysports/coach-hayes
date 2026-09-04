@@ -42,7 +42,7 @@ export async function loginAction(
 
   let ok = false;
   try {
-    ok = checkPassword(password);
+    ok = await checkPassword(password);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Auth misconfigured." };
   }

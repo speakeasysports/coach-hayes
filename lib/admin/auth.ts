@@ -95,13 +95,34 @@ export async function verifySessionToken(
   }
 }
 
-/** True when the supplied password matches ADMIN_PASSWORD. */
-export function checkPassword(input: string): boolean {
+/**
+ * True when the supplied password matches ADMIN_PASSWORD.
+ *
+ * Both sides are HMAC'd before comparison so the operands are always the same
+ * fixed length — a raw string compare leaks the expected password's length
+ * through timing regardless of how careful the comparison loop is. (Adopted
+ * from the parallel implementation in worktree-drizzle-migration, which got
+ * this detail right.)
+ */
+export async function checkPassword(input: string): Promise<boolean> {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
     throw new Error("ADMIN_PASSWORD is not set. See .env.example.");
   }
-  return safeEqual(input, expected);
+  const [a, b] = await Promise.all([digest(input), digest(expected)]);
+  return safeEqual(a, b);
+}
+
+/** HMAC of an arbitrary string under SESSION_SECRET, as hex. */
+async function digest(value: string): Promise<string> {
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    await key(),
+    new TextEncoder().encode(value),
+  );
+  return [...new Uint8Array(sig)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export const SESSION_TTL_SEC = DEFAULT_TTL_SEC;

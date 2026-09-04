@@ -48,3 +48,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/catalog-analysis.json
+/concept-extraction.json
+/roster-cfbd.json
+
+# local database
+/.data/
