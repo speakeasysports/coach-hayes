@@ -233,3 +233,16 @@ export type PlayerRow = typeof players.$inferSelect;
 export type VideoRow = typeof videos.$inferSelect;
 export type ConceptRow = typeof concepts.$inferSelect;
 export type SeriesRow = typeof series.$inferSelect;
+
+/**
+ * Small key/value store for admin state that has no natural home on a
+ * content row: last sync outcome, the configured Sheets import URL.
+ *
+ * Deliberately a KV table rather than columns — these are singletons, and a
+ * one-row settings table invites the "which row is live?" bug.
+ */
+export const adminMeta = sqliteTable("admin_meta", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

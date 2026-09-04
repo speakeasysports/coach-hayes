@@ -16,7 +16,7 @@
  * Players are matched from the SEEDED roster only — the matcher can never
  * invent a player from a string (measured ~35% precision doing that).
  */
-import { findAmbiguousSurnames, SURNAME_STOPLIST } from "../schema";
+import { findAmbiguousSurnames, nameTokens, SURNAME_STOPLIST } from "../schema";
 
 /** Score floor for persisting a video↔player link at all. */
 export const LINK_MIN_SCORE = 60;
@@ -49,7 +49,8 @@ function tokenize(s: string): string[] {
 }
 
 function parseName(name: string): Parsed | null {
-  const parts = name.trim().split(/\s+/);
+  // Suffix-aware: "Anthony Evans III" must parse as Evans, not III.
+  const parts = nameTokens(name);
   if (parts.length === 0 || !parts[0]) return null;
   const last = parts[parts.length - 1];
   const firstRaw = parts.slice(0, -1).join(" ");

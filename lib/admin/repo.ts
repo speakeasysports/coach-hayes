@@ -1,12 +1,15 @@
 /**
  * The active AdminRepository.
  *
- * Currently the in-memory mock. When worktree-drizzle-migration lands its
- * implementation, this file is the ONLY thing that changes — every route and
- * action imports `repo` from here and depends on the interface, not the store.
+ * This file is the single seam between the admin UI and the store. Every
+ * route and server action imports `repo` from here and depends only on the
+ * interface in ./contract, so switching implementations is a one-line change.
+ *
+ * mockRepo (./mock) remains for local UI work without a database — point
+ * `repo` at it if you want fixtures instead of the real ingest output.
  */
 import type { AdminRepository } from "./contract";
-import { mockRepo } from "./mock";
+import { dbRepo } from "./db-repo";
 
-export const repo: AdminRepository = mockRepo;
+export const repo: AdminRepository = dbRepo;
 export type { AdminRepository };

@@ -8,6 +8,13 @@
       "when": 1785936026958,
       "tag": "0000_happy_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788561981545,
+      "tag": "0001_nifty_sister_grimm",
+      "breakpoints": true
     }
   ]
 }
