@@ -16,7 +16,7 @@ export default async function PlayersPage({
   const showAll = sp.all === "1";
 
   const players = await repo.getPlayers({
-    hasVideos: !showAll,
+    relevantOnly: !showAll,
     search: sp.q,
   });
 
@@ -24,13 +24,13 @@ export default async function PlayersPage({
     <section>
       <h1 className="text-3xl font-bold tracking-tight">Players</h1>
       <p className="mt-2 text-sm text-muted">
-        Seeded from the CFBD roster. Players with no linked video cannot be
-        published — thin pages hurt search.
+        Seeded from the CFBD roster, plus Big Board recruits imported from
+        Sheets. A player page needs film behind it; a board slot does not.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2 border-b border-border pb-4">
         <Toggle href="/admin/players" active={!showAll}>
-          Has videos
+          Film or board
         </Toggle>
         <Toggle href="/admin/players?all=1" active={showAll}>
           All roster
@@ -63,9 +63,9 @@ export default async function PlayersPage({
                     >
                       {p.name}
                     </Link>
-                    {!p.isPublishable && (
+                    {!p.hasPlayerPage && (
                       <span className="ml-2 text-xs text-zinc-600">
-                        not publishable
+                        {p.onBigBoard ? "board only — no film yet" : "no film"}
                       </span>
                     )}
                   </td>

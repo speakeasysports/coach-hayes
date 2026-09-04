@@ -27,6 +27,7 @@
  * Mutations throw on failure — idiomatic for Next server actions, which catch
  * and surface to the UI. They do not return error unions.
  */
+import type { ImportPreview } from "@/lib/board/import";
 import type {
   ConceptFamily,
   Format,
@@ -169,13 +170,25 @@ export type PlayerListItem = {
   status: PlayerStatus;
   videoCount: number;
   onBigBoard: boolean;
-  /** False when videoCount is 0 — 139 of 238 rostered players. */
-  isPublishable: boolean;
+  /**
+   * Whether this player warrants a /players/[slug] page. Requires film --
+   * a page with no video is thin and hurts the search traffic the whole
+   * plan rests on. Board membership alone does NOT qualify: a recruit can
+   * appear on the Big Board without having a player page.
+   */
+  hasPlayerPage: boolean;
 };
 
 export type PlayerListFilter = {
-  /** Defaults TRUE. The zero-video majority is noise and cannot publish. */
-  hasVideos?: boolean;
+  /**
+   * Defaults TRUE. Hides players with neither film nor a board slot -- the
+   * ~139 rostered names that are never mentioned in a video.
+   *
+   * NOT the same as "has videos": a Big Board recruit legitimately has no
+   * film (2027 prospects are hand-entered and often unbroken-down), and
+   * filtering purely on video count made freshly imported recruits vanish.
+   */
+  relevantOnly?: boolean;
   position?: Position;
   status?: PlayerStatus;
   search?: string;
@@ -231,6 +244,22 @@ export type PublishedCounts = {
   concepts: number;
   topics: number;
 };
+
+// ---------------------------------------------------------------------------
+// Sheet import
+//
+// The sheet is an INPUT, not a live dependency. Coach drafts the board in
+// Google Sheets, pulls it in, and the database stays authoritative from then
+// on -- so admin edits survive and the board does not empty if the URL breaks.
+// ---------------------------------------------------------------------------
+export type ImportSource = {
+  /** Published-to-web CSV URL. Null until Coach sets one. */
+  url: string | null;
+  lastImportedAt: string | null;
+  lastResult: { created: number; updated: number } | null;
+};
+
+export type ImportResult = { created: number; updated: number };
 
 // ---------------------------------------------------------------------------
 // Pickers
@@ -305,6 +334,25 @@ export interface AdminRepository {
   searchPlayers(query: string, limit?: number): Promise<PlayerOption[]>;
   searchConcepts(query: string, limit?: number): Promise<ConceptOption[]>;
   listSeries(): Promise<SeriesOption[]>;
+
+  // ---- sheet import -----------------------------------------------------
+  getImportSource(): Promise<ImportSource>;
+  setImportSource(url: string): Promise<void>;
+
+  /**
+   * Fetch + parse the sheet and describe what an apply WOULD do. Writes
+   * nothing. Coach confirms before anything changes -- silently letting the
+   * sheet overwrite admin edits is the same class of bug as a re-sync
+   * clobbering written analysis.
+   */
+  previewSheetImport(url?: string): Promise<ImportPreview>;
+
+  /**
+   * Apply the creates and updates from a preview. `rowKeys` limits it to
+   * specific rows; omitted means every applicable row. Idempotent -- applying
+   * twice yields the same players.
+   */
+  applySheetImport(url: string, rowKeys?: string[]): Promise<ImportResult>;
 
   // ---- sync -------------------------------------------------------------
   /**

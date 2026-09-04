@@ -94,6 +94,41 @@ export async function syncNowAction() {
 }
 
 // ---------------------------------------------------------------------------
+// sheet import
+// ---------------------------------------------------------------------------
+export async function setImportSourceAction(url: string) {
+  await requireSession();
+  await repo.setImportSource(url.trim());
+  revalidatePath("/admin/import");
+}
+
+export type PreviewState =
+  | { ok: true; preview: Awaited<ReturnType<typeof repo.previewSheetImport>> }
+  | { ok: false; error: string };
+
+export async function previewImportAction(url: string): Promise<PreviewState> {
+  await requireSession();
+  try {
+    const preview = await repo.previewSheetImport(url.trim() || undefined);
+    return { ok: true, preview };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+export async function applyImportAction(url: string, rowKeys?: string[]) {
+  await requireSession();
+  const result = await repo.applySheetImport(url.trim(), rowKeys);
+  revalidatePath("/admin/import");
+  revalidatePath("/admin/players");
+  revalidatePath("/big-board");
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // video + player edit
 // ---------------------------------------------------------------------------
 export async function saveEditorialAction(
