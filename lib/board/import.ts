@@ -126,6 +126,12 @@ export type ImportRow =
 
 export type ImportPreview = {
   sourceUrl: string;
+  /**
+   * Stable hash of the parsed rows this preview describes. Apply refuses to
+   * run against a different one, so a sheet edited between Preview and Apply
+   * cannot write changes Coach never saw.
+   */
+  fingerprint: string;
   rowsRead: number;
   rows: ImportRow[];
   /** Parse/validation failures from the sheet itself. */
@@ -147,7 +153,13 @@ export type ExistingPlayer = {
   name: string;
   position: Position;
   onBigBoard?: boolean;
-} & Partial<Omit<ImportableFields, "name" | "position" | "onBigBoard">>;
+  /**
+   * `null` means "tracked, and currently empty" — a real difference the
+   * import should report. Only `undefined` means "not tracked", which the
+   * diff skips. Collapsing the two hid every class-year change.
+   */
+  classYear?: number | null;
+} & Partial<Omit<ImportableFields, "name" | "position" | "onBigBoard" | "classYear">>;
 
 function show(v: unknown): string {
   if (v == null || v === "") return "—";
@@ -238,11 +250,25 @@ export function diffImport(
 
   return {
     sourceUrl,
+    fingerprint: fingerprintOf(recruits),
     rowsRead: recruits.length,
     rows,
     errors,
     unlinkedVideos: [],
   };
+}
+
+/** Order-sensitive, content-sensitive digest of the parsed sheet. */
+export function fingerprintOf(recruits: Recruit[]): string {
+  const canonical = JSON.stringify(recruits);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < canonical.length; i++) {
+    const c = canonical.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 + c, 0x85ebca6b) >>> 0;
+  }
+  return `${h1.toString(16)}${h2.toString(16)}-${recruits.length}`;
 }
 
 export function summarize(p: ImportPreview) {

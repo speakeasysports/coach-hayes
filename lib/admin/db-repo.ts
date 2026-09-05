@@ -28,12 +28,14 @@ import {
   videoTopics,
 } from "@/lib/db/schema";
 import {
+  extractSurname,
   findAmbiguousSurnames,
   type Position,
   type PositionGroup,
   type PlayerStatus,
 } from "@/lib/schema";
 import { diffImport, type ExistingPlayer } from "@/lib/board/import";
+import { mintSlug } from "@/lib/db/slug";
 import { parseBoardCsv } from "@/lib/board/sheet";
 import type {
   AdminRepository,
@@ -96,9 +98,11 @@ async function loadRoster(): Promise<RosterEntry[]> {
   }));
 }
 
-function surnameOf(name: string): string {
-  return name.trim().split(/\s+/).pop()?.toLowerCase() ?? "";
-}
+// Must be the SAME derivation that built `shared`. A local last-token
+// helper here silently disagreed with the suffix-aware findAmbiguousSurnames,
+// so suffixed players ("Ellis Robinson IV") were dropped from their own
+// ambiguity group and could never be picked — reintroducing exactly the bias
+// the suffix fix removed.
 
 function initialsOf(name: string): string {
   return name.trim().split(/\s+/)[0]?.[0]?.toLowerCase() ?? "";
@@ -116,7 +120,7 @@ function ambiguitiesFor(
   const out: AmbiguityChoice[] = [];
   for (const surname of shared) {
     if (!tokens.has(surname)) continue;
-    const candidates = roster.filter((p) => surnameOf(p.name) === surname);
+    const candidates = roster.filter((p) => extractSurname(p.name) === surname);
     if (candidates.length < 2) continue;
     out.push({
       surname,
@@ -150,7 +154,11 @@ async function reviewRowsWithTagFlags(): Promise<BucketRow[]> {
   const base = await db
     .select({ id: videos.id, title: videos.title })
     .from(videos)
-    .where(IN_REVIEW);
+    .where(IN_REVIEW)
+    // The contract documents oldest-first so the backfill drains
+    // predictably. Without this the order is incidental, and slicing an
+    // unordered result for limit/offset can skip rows outright.
+    .orderBy(videos.publishedAt, videos.id);
   if (base.length === 0) return [];
   const ids = base.map((v) => v.id);
   const [pl, cn] = await Promise.all([
@@ -313,11 +321,15 @@ export const dbRepo: AdminRepository = {
   },
 
   async saveVideoTags(id: VideoId, tags: TagUpdate) {
-    const db = getDb();
     const videoId = num(id);
 
     // Replace this video's tag links. source='manual' marks them as human
     // decisions so a future re-tag leaves them alone.
+    //
+    // Transactional: this deletes four link tables before re-inserting, and
+    // a failure in between (a blip against hosted libSQL, a stale playerId
+    // FK) would otherwise destroy the video's tags with nothing to restore.
+    await getDb().transaction(async (db) => {
     await db.delete(videoPlayers).where(eq(videoPlayers.videoId, videoId));
     await db.delete(videoConcepts).where(eq(videoConcepts.videoId, videoId));
     await db.delete(videoTopics).where(eq(videoTopics.videoId, videoId));
@@ -362,6 +374,7 @@ export const dbRepo: AdminRepository = {
         published: true,
       })
       .where(eq(videos.id, videoId));
+    });
   },
 
   async archiveVideos(ids) {
@@ -634,7 +647,10 @@ export const dbRepo: AdminRepository = {
       id: String(p.id),
       name: p.name,
       position: p.position,
-      classYear: p.classYear ?? undefined,
+      // NOT `?? undefined` — that is diffImport's "field not tracked"
+      // sentinel, and every roster row has a NULL class_year, so the
+      // class-year diff was skipped for every single player.
+      classYear: p.classYear,
       stars: p.stars,
       heightIn: p.heightIn,
       weightLb: p.weightLb,
@@ -646,12 +662,29 @@ export const dbRepo: AdminRepository = {
     return diffImport(src, parsed.recruits, existing, parsed.errors);
   },
 
-  async applySheetImport(url, rowKeys): Promise<ImportResult> {
+  async applySheetImport(url, rowKeys, expectedFingerprint): Promise<ImportResult> {
     const db = getDb();
     const preview = await this.previewSheetImport(url);
+
+    // The sheet is re-fetched here, so it may have moved since Coach hit
+    // Preview. Refuse rather than write something he never reviewed.
+    if (expectedFingerprint && preview.fingerprint !== expectedFingerprint) {
+      throw new Error(
+        "The sheet changed since you previewed it. Preview again to see the current changes.",
+      );
+    }
+
     const wanted = rowKeys ? new Set(rowKeys) : null;
     let created = 0;
     let updated = 0;
+
+    // players.slug is NOT NULL UNIQUE. diffImport keys on name+position, so
+    // the same person listed at a second position arrives as a "create" and
+    // collides with the existing row — throwing mid-loop with earlier rows
+    // already committed. Claim slugs against what is actually in the table.
+    const taken = new Set(
+      (await db.select({ slug: players.slug }).from(players)).map((r) => r.slug),
+    );
 
     for (const row of preview.rows) {
       if (wanted && !wanted.has(row.key)) continue;
@@ -659,7 +692,7 @@ export const dbRepo: AdminRepository = {
       if (row.kind === "create") {
         const f = row.fields;
         await db.insert(players).values({
-          slug: f.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          slug: mintSlug(f.name, `player-${Date.now()}`, taken),
           name: f.name,
           position: f.position,
           classYear: f.classYear,

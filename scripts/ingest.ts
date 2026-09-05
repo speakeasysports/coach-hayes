@@ -30,6 +30,7 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { closeDb, getDb, type Db } from "../lib/db/client";
+import { mintSlug } from "../lib/db/slug";
 import {
   concepts,
   players,
@@ -88,27 +89,6 @@ const CatalogVideoSchema = z.object({
 });
 type CatalogVideo = z.infer<typeof CatalogVideoSchema>;
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80)
-    .replace(/-+$/g, "");
-}
-
-/** Mint a slug not present in `taken`; claims it. */
-function mintSlug(base: string, fallback: string, taken: Set<string>): string {
-  let slug = slugify(base) || fallback;
-  if (taken.has(slug)) {
-    let n = 2;
-    while (taken.has(`${slug}-${n}`)) n++;
-    slug = `${slug}-${n}`;
-  }
-  taken.add(slug);
-  return slug;
-}
 
 // ---------------------------------------------------------------------------
 // Seeding

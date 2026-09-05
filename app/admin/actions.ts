@@ -119,9 +119,17 @@ export async function previewImportAction(url: string): Promise<PreviewState> {
   }
 }
 
-export async function applyImportAction(url: string, rowKeys?: string[]) {
+export async function applyImportAction(
+  url: string,
+  rowKeys?: string[],
+  expectedFingerprint?: string,
+) {
   await requireSession();
-  const result = await repo.applySheetImport(url.trim(), rowKeys);
+  const result = await repo.applySheetImport(
+    url.trim(),
+    rowKeys,
+    expectedFingerprint,
+  );
   revalidatePath("/admin/import");
   revalidatePath("/admin/players");
   revalidatePath("/big-board");

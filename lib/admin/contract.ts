@@ -348,11 +348,19 @@ export interface AdminRepository {
   previewSheetImport(url?: string): Promise<ImportPreview>;
 
   /**
-   * Apply the creates and updates from a preview. `rowKeys` limits it to
-   * specific rows; omitted means every applicable row. Idempotent -- applying
-   * twice yields the same players.
+   * Apply the creates and updates from a preview.
+   *
+   * `rowKeys` limits it to specific rows; omitted means every applicable row.
+   * `expectedFingerprint` is the one carried by the preview Coach reviewed —
+   * apply REFUSES if the sheet has changed since, rather than silently
+   * writing content he never saw. Idempotent: applying twice yields the same
+   * players.
    */
-  applySheetImport(url: string, rowKeys?: string[]): Promise<ImportResult>;
+  applySheetImport(
+    url: string,
+    rowKeys?: string[],
+    expectedFingerprint?: string,
+  ): Promise<ImportResult>;
 
   // ---- sync -------------------------------------------------------------
   /**

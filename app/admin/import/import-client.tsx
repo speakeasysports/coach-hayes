@@ -41,10 +41,19 @@ export function ImportClient({
 
   const apply = () => {
     if (!preview) return;
+    // Send exactly the rows this preview showed, and the fingerprint it was
+    // computed from — the server refuses if the sheet has moved since.
+    const keys = preview.rows
+      .filter((r) => r.kind === "create" || r.kind === "update")
+      .map((r) => r.key);
     startTransition(async () => {
-      const r = await applyImportAction(url);
-      setApplied(r);
-      setPreview(null);
+      try {
+        const r = await applyImportAction(url, keys, preview.fingerprint);
+        setApplied(r);
+        setPreview(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
     });
   };
 

@@ -3,6 +3,7 @@
  *   npx tsx scripts/import-logic-test.ts
  */
 import {
+  fingerprintOf,
   parseHeightInches,
   formatHeight,
   mapSheetStatus,
@@ -90,6 +91,48 @@ eq("conflict cites the earlier row", dup && "reason" in dup ? /row 2/.test(dup.r
 const created = preview.rows.find((r) => r.kind === "create");
 eq("create carries onBigBoard", created && "fields" in created ? created.fields.onBigBoard : null, true);
 eq("create maps height to inches", created && "fields" in created ? created.fields.heightIn : null, 73);
+
+// --- regressions from the code review -------------------------------------
+console.log("classYear: null is 'tracked and empty', not 'untracked'");
+{
+  const csv2 = `Published,Position,Player Name,Class,Star Rating,Height,Weight,High School,Status,Committed Team,Video URL
+TRUE,QB,Delta Arm,2027,4,"6'2""",200,West HS,Uncommitted,,
+`;
+  const rows = parseBoardCsv(csv2).recruits;
+  // NULL class year on the existing record must produce a diff, not be skipped.
+  const withNull = diffImport("u", rows, [
+    { id: "p9", name: "Delta Arm", position: "QB", classYear: null, stars: 4,
+      heightIn: 74, weightLb: 200, highSchool: "West HS", status: "target",
+      committedTo: null, onBigBoard: true },
+  ]);
+  const r1 = withNull.rows[0];
+  eq("null classYear yields an update", r1.kind, "update");
+  eq(
+    "and the diff names class",
+    r1 && "diffs" in r1 ? r1.diffs.map((d) => d.field) : null,
+    ["class"],
+  );
+  // undefined still means "not tracked" and is skipped.
+  const withUndef = diffImport("u", rows, [
+    { id: "p9", name: "Delta Arm", position: "QB", stars: 4,
+      heightIn: 74, weightLb: 200, highSchool: "West HS", status: "target",
+      committedTo: null, onBigBoard: true },
+  ]);
+  eq("undefined classYear stays untracked", withUndef.rows[0].kind, "unchanged");
+}
+
+console.log("fingerprint");
+{
+  const a = parseBoardCsv(`Published,Position,Player Name,Class,Star Rating,Height,Weight,High School,Status,Committed Team,Video URL
+TRUE,QB,Echo One,2027,4,"6'2""",200,A HS,Uncommitted,,
+`).recruits;
+  const b = parseBoardCsv(`Published,Position,Player Name,Class,Star Rating,Height,Weight,High School,Status,Committed Team,Video URL
+TRUE,QB,Echo One,2027,5,"6'2""",200,A HS,Uncommitted,,
+`).recruits;
+  eq("stable for identical content", fingerprintOf(a), fingerprintOf(a));
+  eq("changes when a value changes", fingerprintOf(a) === fingerprintOf(b), false);
+  eq("encodes row count", fingerprintOf(a).endsWith("-1"), true);
+}
 
 console.log(failed === 0 ? "\n✓ all import logic checks passed" : `\n✗ ${failed} failed`);
 if (failed) process.exit(1);

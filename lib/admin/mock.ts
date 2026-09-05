@@ -624,8 +624,17 @@ export const mockRepo: AdminRepository = {
     return diffImport(src, parsed.recruits, existing, parsed.errors);
   },
 
-  async applySheetImport(url: string, rowKeys?: string[]): Promise<ImportResult> {
+  async applySheetImport(
+    url: string,
+    rowKeys?: string[],
+    expectedFingerprint?: string,
+  ): Promise<ImportResult> {
     const preview = await this.previewSheetImport(url);
+    if (expectedFingerprint && preview.fingerprint !== expectedFingerprint) {
+      throw new Error(
+        "The sheet changed since you previewed it. Preview again to see the current changes.",
+      );
+    }
     const wanted = rowKeys ? new Set(rowKeys) : null;
     let created = 0;
     let updated = 0;
