@@ -1,0 +1,101 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { getPlayerIndex } from "@/lib/db/public";
+import { getThumbnailUrl } from "@/lib/youtube";
+import { POSITIONS, type Position } from "@/lib/schema";
+
+export const metadata: Metadata = {
+  title: "Players",
+  description:
+    "Every Georgia player Coach Hayes has broken down on film, grouped by position.",
+  alternates: { canonical: "/players" },
+};
+
+export default async function PlayersIndexPage() {
+  const players = await getPlayerIndex();
+
+  if (players.length === 0) {
+    return (
+      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-5 px-4 py-24 text-center sm:px-6">
+        <h1 className="text-4xl font-bold tracking-tight">Players</h1>
+        <p className="text-zinc-400">
+          Film breakdowns are being indexed. Check back soon.
+        </p>
+      </section>
+    );
+  }
+
+  const byPosition = new Map<Position, typeof players>();
+  for (const p of players) {
+    const arr = byPosition.get(p.position) ?? [];
+    arr.push(p);
+    byPosition.set(p.position, arr);
+  }
+
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
+      <header className="mb-8">
+        <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
+          Film room
+        </span>
+        <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
+          Players
+        </h1>
+        <p className="mt-3 max-w-2xl text-zinc-400">
+          Every Georgia player broken down on film, grouped by position.{" "}
+          <span className="text-zinc-500">
+            {players.length} players · {players.reduce((n, p) => n + p.videoCount, 0)}{" "}
+            breakdowns
+          </span>
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-12">
+        {POSITIONS.map((pos) => {
+          const rows = byPosition.get(pos);
+          if (!rows?.length) return null;
+          return (
+            <section key={pos}>
+              <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
+                <span>{pos}</span>
+                <span className="text-base font-normal text-muted">
+                  {rows.length}
+                </span>
+              </h2>
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {rows.map((p) => (
+                  <li key={p.slug}>
+                    <Link
+                      href={`/players/${p.slug}`}
+                      className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
+                    >
+                      <div className="relative aspect-video bg-black">
+                        {p.latestThumbnailId && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={getThumbnailUrl(p.latestThumbnailId)}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                          />
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="font-semibold text-white">{p.name}</p>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {p.videoCount}{" "}
+                          {p.videoCount === 1 ? "breakdown" : "breakdowns"}
+                          {p.stars != null && ` · ${p.stars}★`}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
