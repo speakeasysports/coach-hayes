@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/site/header";
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   },
   description:
     "In-depth football coaching analysis, player breakdowns, and recruit insights from a coach's perspective. Emphasis on UGA.",
-  metadataBase: new URL("https://coachhayeshudl.com"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "Coach Hayes Hudl",
     description:
