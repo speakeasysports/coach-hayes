@@ -10,6 +10,8 @@ import {
   LatestVideosSkeleton,
 } from "@/components/site/latest-videos";
 import { getCopy } from "@/lib/content/get-copy";
+import { getPatreonShelf, type ShelfPost } from "@/lib/db/public";
+import { PatreonShelf } from "@/components/site/patreon-shelf";
 import type { Copy } from "@/lib/content/copy";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const copy = await getCopy();
+  const [copy, shelf] = await Promise.all([getCopy(), getPatreonShelf(3)]);
   return (
     <>
       <Hero copy={copy} />
@@ -26,7 +28,7 @@ export default async function Home() {
         <LatestVideos copy={copy} />
       </Suspense>
       <FeatureCards copy={copy} />
-      <SupportCta copy={copy} />
+      <SupportCta copy={copy} shelf={shelf} />
     </>
   );
 }
@@ -156,10 +158,19 @@ function FeatureCards({ copy }: { copy: Copy }) {
   );
 }
 
-function SupportCta({ copy }: { copy: Copy }) {
+/**
+ * Progressive enhancement: with posts on the shelf this section shows what
+ * supporting actually buys; with none it stays the text-only pitch it was.
+ * Either way it is one section, not two — the homepage does not grow a block
+ * that is empty most of the time.
+ */
+function SupportCta({ copy, shelf }: { copy: Copy; shelf: ShelfPost[] }) {
+  const width = shelf.length > 0 ? "max-w-6xl" : "max-w-3xl";
   return (
     <section className="border-t border-border bg-surface">
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-14 text-center sm:px-6">
+      <div
+        className={`mx-auto flex ${width} flex-col items-center gap-4 px-4 py-14 text-center sm:px-6`}
+      >
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
           {copy["home.support.eyebrow"]}
         </span>
@@ -169,6 +180,21 @@ function SupportCta({ copy }: { copy: Copy }) {
         <p className="max-w-lg text-pretty text-sm leading-relaxed text-zinc-400">
           {copy["home.support.body"]}
         </p>
+
+        {shelf.length > 0 && (
+          <div className="mt-6 w-full text-left">
+            <PatreonShelf posts={shelf} />
+            <div className="mt-5 text-center">
+              <Link
+                href="/patreon"
+                className="text-sm font-semibold text-zinc-300 transition-colors hover:text-white"
+              >
+                Everything on Patreon →
+              </Link>
+            </div>
+          </div>
+        )}
+
         <a
           href={PATREON_URL}
           target="_blank"

@@ -27,6 +27,7 @@ export type CopyPageId =
   | "players"
   | "film"
   | "playbook"
+  | "patreon"
   | "big-board";
 
 export type CopyKind =
@@ -374,6 +375,50 @@ export const COPY_PAGES = [
         label: "Empty state",
         kind: "paragraph",
         fallback: "Concepts are being indexed. Check back soon.",
+      },
+    ],
+  },
+  {
+    id: "patreon",
+    label: "On Patreon",
+    path: "/patreon",
+    fields: [
+      {
+        key: "patreon.meta.description",
+        label: "Search description",
+        kind: "paragraph",
+        maxLength: 160,
+        fallback:
+          "The full film studies from Coach Hayes — every play, start to finish, with the all-22 and the install notes.",
+      },
+      { key: "patreon.eyebrow", label: "Small label", kind: "line", fallback: "Members" },
+      {
+        key: "patreon.heading",
+        label: "Heading",
+        kind: "line",
+        fallback: "The full studies",
+      },
+      {
+        key: "patreon.intro",
+        label: "Intro line",
+        kind: "paragraph",
+        help: "The count is added after this automatically.",
+        fallback:
+          "Everything on the rest of this site is free. These are the deep ones — every play, start to finish, with the all-22 and the install notes.",
+      },
+      {
+        key: "patreon.empty",
+        label: "Empty state",
+        kind: "paragraph",
+        help: "Shown until the first post is added to the shelf in the admin.",
+        fallback:
+          "The first film studies are going up shortly. Head to Patreon to be there when they land.",
+      },
+      {
+        key: "patreon.cta",
+        label: "Button",
+        kind: "line",
+        fallback: "Support on Patreon",
       },
     ],
   },

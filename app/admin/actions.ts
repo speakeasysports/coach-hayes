@@ -15,6 +15,8 @@ import { copyPage } from "@/lib/content/copy";
 import type {
   ConceptId,
   ConceptInput,
+  PatreonPostId,
+  PatreonPostInput,
   PlayerEditableFields,
   PlayerId,
   TagUpdate,
@@ -132,6 +134,50 @@ export async function deleteConceptAction(
   try {
     await repo.deleteConcept(id as ConceptId);
     revalidateConcepts();
+    return { error: null, ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err), ok: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// patreon shelf
+// ---------------------------------------------------------------------------
+export type PatreonFormState = { error: string | null; ok: boolean };
+
+function revalidatePatreon() {
+  revalidatePath("/admin/patreon");
+  revalidatePath("/patreon");
+  // The homepage support block turns into a shelf once posts exist.
+  revalidatePath("/");
+}
+
+export async function savePatreonPostAction(
+  id: string | null,
+  input: PatreonPostInput,
+): Promise<PatreonFormState> {
+  await requireSession();
+  try {
+    if (id) {
+      await repo.updatePatreonPost(id as PatreonPostId, input);
+      revalidatePath(`/admin/patreon/${id}`);
+    } else {
+      await repo.createPatreonPost(input);
+    }
+    revalidatePatreon();
+    return { error: null, ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err), ok: false };
+  }
+}
+
+export async function deletePatreonPostAction(
+  id: string,
+): Promise<PatreonFormState> {
+  await requireSession();
+  try {
+    await repo.deletePatreonPost(id as PatreonPostId);
+    revalidatePatreon();
     return { error: null, ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err), ok: false };

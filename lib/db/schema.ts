@@ -248,6 +248,32 @@ export type ConceptRow = typeof concepts.$inferSelect;
 export type SeriesRow = typeof series.$inferSelect;
 
 /**
+ * Patreon posts Coach wants surfaced on the site.
+ *
+ * A shelf of LINKS, not content: Patreon's paid media has no external embed,
+ * and its API exposes no thumbnail, so nothing here can be fetched — Coach
+ * types the title and teaser himself. That also makes the shelf immune to
+ * Patreon changing their markup or their API.
+ *
+ * There is no thumbnail column requirement, because most cards will not need
+ * one: a post whose preview clip is on the site is joined by url to
+ * videos.patreon_url, and the card borrows the clip's YouTube thumbnail and
+ * links to the on-site film page. thumbnailUrl is the fallback for posts with
+ * no preview cut yet.
+ */
+export const patreonPosts = pgTable("patreon_posts", {
+  id: serial("id").primaryKey(),
+  /** Canonical post url. Unique — it is what joins a post to its preview clip. */
+  url: text("url").notNull().unique(),
+  title: text("title").notNull(),
+  teaser: text("teaser"),
+  thumbnailUrl: text("thumbnail_url"),
+  /** Date Coach posted it on Patreon. Orders the shelf; optional. */
+  postedAt: text("posted_at"),
+  published: boolean("published").notNull().default(false),
+});
+
+/**
  * Editable page copy — headings, paragraphs and button labels on the public
  * pages. OVERRIDES ONLY: the registry of what is editable, and the default
  * text for each field, lives in lib/content/copy.ts. A key with no row here

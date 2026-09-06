@@ -46,6 +46,7 @@ export type VideoId = string & { readonly __brand: "VideoId" };
 export type PlayerId = string & { readonly __brand: "PlayerId" };
 export type ConceptId = string & { readonly __brand: "ConceptId" };
 export type SeriesId = string & { readonly __brand: "SeriesId" };
+export type PatreonPostId = string & { readonly __brand: "PatreonPostId" };
 
 // ---------------------------------------------------------------------------
 // Queue
@@ -289,6 +290,34 @@ export type ConceptInput = {
 };
 
 // ---------------------------------------------------------------------------
+// Patreon shelf
+//
+// Links to posts behind the paywall, entered by hand. Nothing here is fetched:
+// Patreon refuses server-side page loads and its API carries no thumbnail, so
+// the title and teaser are Coach's words. That is a feature — the shelf cannot
+// break when Patreon changes.
+// ---------------------------------------------------------------------------
+export type PatreonPostInput = {
+  /** Validated as a patreon.com POST url; the campaign page is rejected. */
+  url: string;
+  title: string;
+  teaser: string | null;
+  /** Fallback art. Ignored when a preview clip on the site supplies one. */
+  thumbnailUrl: string | null;
+  /** ISO date (YYYY-MM-DD) Coach posted it. Orders the shelf. */
+  postedAt: string | null;
+  published: boolean;
+};
+
+export type PatreonPostListItem = PatreonPostInput & {
+  id: PatreonPostId;
+  /** Slug of the on-site preview clip whose patreonUrl matches, if any. */
+  previewSlug: string | null;
+};
+
+export type PatreonPostDetail = PatreonPostListItem;
+
+// ---------------------------------------------------------------------------
 // Page copy
 //
 // Headings, paragraphs and button labels on the public pages. The registry of
@@ -425,6 +454,15 @@ export interface AdminRepository {
 
   /** Refuses when any video still carries the concept. */
   deleteConcept(id: ConceptId): Promise<void>;
+
+  // ---- patreon shelf ----------------------------------------------------
+  listPatreonPosts(): Promise<PatreonPostListItem[]>;
+  getPatreonPost(id: PatreonPostId): Promise<PatreonPostDetail | null>;
+
+  /** Rejects a non-post url, and a url already on the shelf. */
+  createPatreonPost(input: PatreonPostInput): Promise<PatreonPostId>;
+  updatePatreonPost(id: PatreonPostId, input: PatreonPostInput): Promise<void>;
+  deletePatreonPost(id: PatreonPostId): Promise<void>;
 
   // ---- page copy --------------------------------------------------------
   /** Every editable surface with its fields, defaults and current overrides. */

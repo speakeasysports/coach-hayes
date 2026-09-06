@@ -5,8 +5,10 @@
  */
 import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "./client";
+import { getThumbnailUrl } from "@/lib/youtube";
 import {
   concepts,
+  patreonPosts,
   players,
   series,
   videoConcepts,
@@ -492,6 +494,63 @@ export async function getConceptPage(slug: string): Promise<ConceptPage | null> 
       .map((v) => ({ youtubeId: v.youtubeId, title: v.headline ?? v.title })),
     players: playerRows,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Patreon shelf — the homepage block and /patreon
+//
+// Links, never content. A card shows the on-site preview clip's thumbnail when
+// one exists (joined on the url the video carries) and sends people to the
+// preview page first; otherwise it goes straight to Patreon.
+// ---------------------------------------------------------------------------
+export type ShelfPost = {
+  url: string;
+  title: string;
+  teaser: string | null;
+  postedAt: string | null;
+  /** From the preview clip when there is one, else Coach's fallback art. */
+  thumbnailUrl: string | null;
+  /** On-site preview page, when a published video names this post. */
+  previewSlug: string | null;
+};
+
+export async function getPatreonShelf(limit?: number): Promise<ShelfPost[]> {
+  const rows = await getDb()
+    .select({
+      id: patreonPosts.id,
+      url: patreonPosts.url,
+      title: patreonPosts.title,
+      teaser: patreonPosts.teaser,
+      thumbnailUrl: patreonPosts.thumbnailUrl,
+      postedAt: patreonPosts.postedAt,
+      previewSlug: videos.slug,
+      previewYoutubeId: videos.youtubeId,
+    })
+    .from(patreonPosts)
+    .leftJoin(
+      videos,
+      and(eq(videos.patreonUrl, patreonPosts.url), eq(videos.published, true)),
+    )
+    .where(eq(patreonPosts.published, true));
+
+  const byId = new Map<number, ShelfPost>();
+  for (const r of rows) {
+    if (byId.has(r.id)) continue;
+    byId.set(r.id, {
+      url: r.url,
+      title: r.title,
+      teaser: r.teaser,
+      postedAt: r.postedAt,
+      thumbnailUrl: r.previewYoutubeId
+        ? getThumbnailUrl(r.previewYoutubeId)
+        : r.thumbnailUrl,
+      previewSlug: r.previewSlug,
+    });
+  }
+  const sorted = [...byId.values()].sort((a, b) =>
+    (b.postedAt ?? "").localeCompare(a.postedAt ?? ""),
+  );
+  return limit == null ? sorted : sorted.slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,7 @@ import {
   adminMeta,
   concepts,
   pageContent,
+  patreonPosts,
   players,
   series,
   videoConcepts,
@@ -48,6 +49,10 @@ import type {
   AmbiguityChoice,
   ConceptId,
   CopyPageState,
+  PatreonPostDetail,
+  PatreonPostId,
+  PatreonPostInput,
+  PatreonPostListItem,
   ImportResult,
   ImportSource,
   PlayerDetail,
@@ -69,6 +74,7 @@ const vid = (n: number) => String(n) as VideoId;
 const pid = (n: number) => String(n) as PlayerId;
 const cid = (n: number) => String(n) as ConceptId;
 const sid = (n: number) => String(n) as SeriesId;
+const ppid = (n: number) => String(n) as PatreonPostId;
 const num = (id: string) => Number(id);
 
 const nowIso = () => new Date().toISOString();
@@ -881,6 +887,46 @@ export const dbRepo: AdminRepository = {
     return status;
   },
 
+  // ---- patreon shelf ----------------------------------------------------
+
+  async listPatreonPosts(): Promise<PatreonPostListItem[]> {
+    return shapePatreonRows(await selectPatreonRows());
+  },
+
+  async getPatreonPost(id: PatreonPostId): Promise<PatreonPostDetail | null> {
+    const rows = await selectPatreonRows(num(id));
+    return shapePatreonRows(rows)[0] ?? null;
+  },
+
+  async createPatreonPost(input: PatreonPostInput): Promise<PatreonPostId> {
+    const values = validatePatreonInput(input);
+    try {
+      const [r] = await getDb()
+        .insert(patreonPosts)
+        .values(values)
+        .returning({ id: patreonPosts.id });
+      return ppid(r.id);
+    } catch (err) {
+      throw asDuplicateUrlError(err);
+    }
+  },
+
+  async updatePatreonPost(id: PatreonPostId, input: PatreonPostInput) {
+    const values = validatePatreonInput(input);
+    try {
+      await getDb()
+        .update(patreonPosts)
+        .set(values)
+        .where(eq(patreonPosts.id, num(id)));
+    } catch (err) {
+      throw asDuplicateUrlError(err);
+    }
+  },
+
+  async deletePatreonPost(id: PatreonPostId) {
+    await getDb().delete(patreonPosts).where(eq(patreonPosts.id, num(id)));
+  },
+
   // ---- page copy --------------------------------------------------------
 
   async listPageCopy(): Promise<CopyPageState[]> {
@@ -937,6 +983,129 @@ export const dbRepo: AdminRepository = {
     });
   },
 };
+
+// ---------------------------------------------------------------------------
+// Patreon shelf helpers
+// ---------------------------------------------------------------------------
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validatePatreonInput(input: PatreonPostInput) {
+  const url = normalizePatreonUrl(input.url);
+  if (!url) {
+    throw new Error(
+      "That is not a Patreon post link. It should look like " +
+        "patreon.com/CoachHayesHudl/posts/… — the campaign page on its own " +
+        "will not do.",
+    );
+  }
+  const title = input.title.trim();
+  if (!title) throw new Error("Give the post a title.");
+
+  const postedAt = input.postedAt?.trim() || null;
+  if (postedAt && !ISO_DATE.test(postedAt)) {
+    throw new Error("Posted date must look like 2026-09-06.");
+  }
+
+  // Fallback art is rendered in an <img src>. Restricting it to http(s) keeps
+  // a javascript: or data: url from being pasted into the page.
+  const thumbnailUrl = input.thumbnailUrl?.trim() || null;
+  if (thumbnailUrl && !/^https?:\/\//i.test(thumbnailUrl)) {
+    throw new Error("Image link must start with http:// or https://");
+  }
+
+  return {
+    url,
+    title,
+    teaser: input.teaser?.trim() || null,
+    thumbnailUrl,
+    postedAt,
+    published: input.published,
+  };
+}
+
+/**
+ * Drizzle wraps the driver error, so the unique-violation detail is down the
+ * cause chain — err.message is only "Failed query: insert into …", which would
+ * put raw SQL and the pasted url in front of Coach.
+ */
+function asDuplicateUrlError(err: unknown): Error {
+  for (let e: unknown = err, depth = 0; e && depth < 5; depth++) {
+    if (typeof e === "object") {
+      const code = (e as { code?: unknown }).code;
+      if (code === "23505") {
+        return new Error("That Patreon post is already on the shelf.");
+      }
+      const message = (e as { message?: unknown }).message;
+      if (typeof message === "string" && /duplicate key|unique constraint/i.test(message)) {
+        return new Error("That Patreon post is already on the shelf.");
+      }
+      e = (e as { cause?: unknown }).cause;
+    } else break;
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/**
+ * A post and its on-site preview clip, joined on the url the video carries.
+ * That join is why there is no second "which video previews this" column: the
+ * video already points at the post, and one arrow is easier to keep true than
+ * two.
+ */
+async function selectPatreonRows(id?: number) {
+  const db = getDb();
+  const base = db
+    .select({
+      id: patreonPosts.id,
+      url: patreonPosts.url,
+      title: patreonPosts.title,
+      teaser: patreonPosts.teaser,
+      thumbnailUrl: patreonPosts.thumbnailUrl,
+      postedAt: patreonPosts.postedAt,
+      published: patreonPosts.published,
+      previewSlug: videos.slug,
+    })
+    .from(patreonPosts)
+    .leftJoin(
+      videos,
+      and(eq(videos.patreonUrl, patreonPosts.url), eq(videos.published, true)),
+    );
+  return id == null
+    ? base.where(sql`true`)
+    : base.where(eq(patreonPosts.id, id));
+}
+
+/**
+ * Collapse the join. Two published videos could name the same post; the shelf
+ * shows one card either way, and the first preview wins.
+ */
+function shapePatreonRows(
+  rows: Awaited<ReturnType<typeof selectPatreonRows>>,
+): PatreonPostListItem[] {
+  const byId = new Map<number, PatreonPostListItem>();
+  for (const r of rows) {
+    const existing = byId.get(r.id);
+    if (existing) {
+      existing.previewSlug ??= r.previewSlug;
+      continue;
+    }
+    byId.set(r.id, {
+      id: ppid(r.id),
+      url: r.url,
+      title: r.title,
+      teaser: r.teaser,
+      thumbnailUrl: r.thumbnailUrl,
+      postedAt: r.postedAt,
+      published: r.published,
+      previewSlug: r.previewSlug,
+    });
+  }
+  return [...byId.values()].sort(
+    (a, b) =>
+      (b.postedAt ?? "").localeCompare(a.postedAt ?? "") ||
+      Number(b.id) - Number(a.id),
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page copy helpers
