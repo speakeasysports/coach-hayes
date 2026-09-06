@@ -3,8 +3,6 @@ import { parseCsv } from "./csv";
 import { RecruitSchema, type Recruit } from "./types";
 import { parseYouTubeId } from "@/lib/youtube";
 
-export const BOARD_REVALIDATE_TAG = "board-sheet";
-const BOARD_REVALIDATE_SECONDS = 5 * 60;
 
 const TRUTHY = new Set(["true", "yes", "y", "1", "✓", "x"]);
 
@@ -38,63 +36,6 @@ export type BoardFetchResult = {
   recruits: Recruit[];
   errors: BoardRowError[];
 };
-
-/**
- * Fetch the published Google Sheet CSV and parse it into validated recruits.
- * Rows where Published is falsy are silently skipped (not errors).
- * Rows that fail validation are returned in `errors` for diagnostics.
- */
-export async function fetchBoard(): Promise<BoardFetchResult> {
-  const url = process.env.SHEET_CSV_URL;
-  if (!url) {
-    return {
-      recruits: [],
-      errors: [
-        {
-          row: 0,
-          name: null,
-          issue:
-            "SHEET_CSV_URL is not set. Add it to .env (see README → Big Board).",
-        },
-      ],
-    };
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      next: {
-        revalidate: BOARD_REVALIDATE_SECONDS,
-        tags: [BOARD_REVALIDATE_TAG],
-      },
-    });
-  } catch (err) {
-    return {
-      recruits: [],
-      errors: [
-        {
-          row: 0,
-          name: null,
-          issue: `Sheet fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-        },
-      ],
-    };
-  }
-  if (!res.ok) {
-    return {
-      recruits: [],
-      errors: [
-        {
-          row: 0,
-          name: null,
-          issue: `Sheet fetch returned ${res.status} ${res.statusText}`,
-        },
-      ],
-    };
-  }
-  const csv = await res.text();
-  return parseBoardCsv(csv);
-}
 
 /** Exported for unit testing — parse CSV text into a board result. */
 export function parseBoardCsv(csv: string): BoardFetchResult {

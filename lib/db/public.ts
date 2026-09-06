@@ -18,6 +18,7 @@ import {
 import {
   SHORT_MAX_SECONDS,
   type ConceptFamily,
+  type PlayerStatus,
   type Position,
   type PositionGroup,
 } from "@/lib/schema";
@@ -168,7 +169,7 @@ export async function getPlayerIndex(): Promise<PlayerIndexEntry[]> {
       latestThumbnailId: sql<string>`
         (select v2.youtube_id from videos v2
          join video_players vp2 on vp2.video_id = v2.id
-         where vp2.player_id = ${players.id} and v2.published = true
+         where vp2.player_id = players.id and v2.published = true
          order by v2.published_at desc limit 1)
       `,
     })
@@ -370,7 +371,7 @@ export async function getConceptIndex(): Promise<ConceptIndexEntry[]> {
       thumbnailId: sql<string | null>`
         (select v2.youtube_id from videos v2
          join video_concepts vc2 on vc2.video_id = v2.id
-         where vc2.concept_id = ${concepts.id} and v2.published = true
+         where vc2.concept_id = concepts.id and v2.published = true
          order by v2.views desc limit 1)
       `,
     })
@@ -536,4 +537,60 @@ export async function getPositionPage(
 
   if (playerRows.length === 0 && films.length === 0) return null;
   return { group, players: playerRows, films };
+}
+
+
+// ---------------------------------------------------------------------------
+// Big Board — /big-board
+//
+// Reads the database, not the Google Sheet. The sheet is an import format
+// (see lib/board/import.ts), not a live dependency: the board used to empty
+// out whenever SHEET_CSV_URL was unset, and nothing the admin did could fix
+// it, because the admin wrote to the database and the page read the sheet.
+// ---------------------------------------------------------------------------
+export type BoardPlayer = {
+  slug: string;
+  name: string;
+  position: Position;
+  classYear: number | null;
+  stars: number | null;
+  heightIn: number | null;
+  weightLb: number | null;
+  highSchool: string | null;
+  status: PlayerStatus;
+  committedTo: string | null;
+  /** Published film. Non-zero means the card links through to a player page. */
+  videoCount: number;
+  thumbnailId: string | null;
+};
+
+export async function getBigBoard(): Promise<BoardPlayer[]> {
+  const rows = await getDb()
+    .select({
+      slug: players.slug,
+      name: players.name,
+      position: players.position,
+      classYear: players.classYear,
+      stars: players.stars,
+      heightIn: players.heightIn,
+      weightLb: players.weightLb,
+      highSchool: players.highSchool,
+      status: players.status,
+      committedTo: players.committedTo,
+      videoCount: sql<number>`(
+        select count(*)::int from video_players vp
+        join videos v on v.id = vp.video_id
+        where vp.player_id = players.id and v.published = true
+      )`,
+      thumbnailId: sql<string | null>`(
+        select v.youtube_id from video_players vp
+        join videos v on v.id = vp.video_id
+        where vp.player_id = players.id and v.published = true
+        order by v.published_at desc limit 1
+      )`,
+    })
+    .from(players)
+    .where(eq(players.onBigBoard, true))
+    .orderBy(desc(players.stars), players.name);
+  return rows;
 }

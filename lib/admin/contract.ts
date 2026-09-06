@@ -344,9 +344,6 @@ export interface AdminRepository {
    */
   archiveVideos(ids: VideoId[]): Promise<void>;
 
-  /** Leave in the queue, move on. No state change beyond ordering. */
-  skipVideo(id: VideoId): Promise<void>;
-
   // ---- video edit -------------------------------------------------------
   getVideo(id: VideoId): Promise<VideoDetail | null>;
   saveVideoEditorial(

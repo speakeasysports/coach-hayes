@@ -1,88 +1,82 @@
-import type { Recruit } from "@/lib/board";
-import { getThumbnailUrl, getWatchUrl } from "@/lib/youtube";
+import Link from "next/link";
+import type { BoardPlayer } from "@/lib/db/public";
+import { getThumbnailUrl } from "@/lib/youtube";
 
-type Props = { recruit: Recruit };
-
-export function RecruitCard({ recruit }: Props) {
-  const heightWeight = formatHeightWeight(recruit.height, recruit.weight);
-
-  return (
-    <article className="flex h-full flex-col gap-4 rounded-xl border border-border bg-surface p-5">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold tracking-tight text-white">
-            {recruit.name}
-          </h3>
-          {recruit.stars != null && (
-            <Stars stars={recruit.stars} />
-          )}
+/**
+ * A Big Board card. When the player has published film the whole card links
+ * through to their page — the board is a way into the film room, not a
+ * dead-end list.
+ */
+export function RecruitCard({ player }: { player: BoardPlayer }) {
+  const linked = player.videoCount > 0;
+  const body = (
+    <>
+      {player.thumbnailId && (
+        <div className="relative aspect-video bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getThumbnailUrl(player.thumbnailId)}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+          />
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Chip>{recruit.position}</Chip>
-          <Chip>Class of {recruit.classYear}</Chip>
-        </div>
-      </header>
-
-      <dl className="grid gap-1 text-sm text-zinc-300">
-        {(heightWeight || recruit.highSchool) && (
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            {heightWeight && (
-              <>
-                <dt className="sr-only">Height and weight</dt>
-                <dd>{heightWeight}</dd>
-              </>
-            )}
-            {heightWeight && recruit.highSchool && (
-              <span aria-hidden className="text-muted">·</span>
-            )}
-            {recruit.highSchool && (
-              <>
-                <dt className="sr-only">High school</dt>
-                <dd className="text-zinc-400">{recruit.highSchool}</dd>
-              </>
-            )}
-          </div>
-        )}
-      </dl>
-
-      <StatusChip
-        status={recruit.status}
-        committedTeam={recruit.committedTeam}
-      />
-
-      {recruit.videoId ? (
-        <a
-          href={getWatchUrl(recruit.videoId)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group mt-auto block overflow-hidden rounded-md border border-border bg-black transition-colors hover:border-brand-red"
-          aria-label={`Film breakdown: ${recruit.name}`}
-        >
-          <div className="relative aspect-video">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={getThumbnailUrl(recruit.videoId)}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
-            />
-          </div>
-        </a>
-      ) : (
-        <p className="mt-auto text-sm text-muted">Film breakdown coming soon.</p>
       )}
-    </article>
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <header className="flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-lg font-semibold tracking-tight text-white">
+              {player.name}
+            </h3>
+            {player.stars != null && <Stars stars={player.stars} />}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip>{player.position}</Chip>
+            {player.classYear && <Chip>Class of {player.classYear}</Chip>}
+          </div>
+        </header>
+
+        {(measurements(player) || player.highSchool) && (
+          <p className="text-sm text-zinc-300">
+            {measurements(player)}
+            {measurements(player) && player.highSchool && (
+              <span className="text-muted"> · </span>
+            )}
+            {player.highSchool && (
+              <span className="text-zinc-400">{player.highSchool}</span>
+            )}
+          </p>
+        )}
+
+        <StatusChip status={player.status} committedTo={player.committedTo} />
+
+        <p className="mt-auto text-sm text-muted">
+          {linked
+            ? `${player.videoCount} film ${player.videoCount === 1 ? "breakdown" : "breakdowns"} →`
+            : "Film breakdown coming soon."}
+        </p>
+      </div>
+    </>
+  );
+
+  const shell =
+    "group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface transition-colors";
+
+  return linked ? (
+    <Link href={`/players/${player.slug}`} className={`${shell} hover:border-brand-red`}>
+      {body}
+    </Link>
+  ) : (
+    <article className={shell}>{body}</article>
   );
 }
 
-function formatHeightWeight(
-  height: string | null,
-  weight: number | null,
-): string | null {
-  if (!height && weight == null) return null;
-  if (height && weight != null) return `${height}, ${weight} lb`;
-  if (height) return height;
-  return `${weight} lb`;
+function measurements(p: { heightIn: number | null; weightLb: number | null }) {
+  const h = p.heightIn
+    ? `${Math.floor(p.heightIn / 12)}'${p.heightIn % 12}"`
+    : null;
+  const w = p.weightLb ? `${p.weightLb} lb` : null;
+  return [h, w].filter(Boolean).join(", ") || null;
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
@@ -95,38 +89,36 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 function Stars({ stars }: { stars: number }) {
   const filled = Math.max(0, Math.min(5, stars));
-  const empty = 5 - filled;
   return (
     <span
       className="whitespace-nowrap text-sm leading-none text-brand-red"
       aria-label={`${filled} out of 5 stars`}
     >
       <span aria-hidden>{"★".repeat(filled)}</span>
-      <span aria-hidden className="text-zinc-700">
-        {"★".repeat(empty)}
-      </span>
+      <span aria-hidden className="text-zinc-700">{"★".repeat(5 - filled)}</span>
     </span>
   );
 }
 
 function StatusChip({
   status,
-  committedTeam,
+  committedTo,
 }: {
-  status: Recruit["status"];
-  committedTeam: string | null;
+  status: string;
+  committedTo: string | null;
 }) {
   const label =
-    status === "Committed" && committedTeam
-      ? `Committed to ${committedTeam}`
-      : status;
-  const tone =
-    status === "Committed"
-      ? "border-brand-red bg-brand-red/10 text-white"
-      : "border-border bg-surface-2 text-zinc-300";
+    status === "committed" && committedTo
+      ? `Committed to ${committedTo}`
+      : status.replace(/-/g, " ");
+  const hot = ["committed", "signed", "enrolled", "active"].includes(status);
   return (
     <span
-      className={`inline-flex w-fit items-center rounded border px-2 py-0.5 text-xs font-medium ${tone}`}
+      className={`inline-flex w-fit items-center rounded border px-2 py-0.5 text-xs font-medium capitalize ${
+        hot
+          ? "border-brand-red bg-brand-red/10 text-white"
+          : "border-border bg-surface-2 text-zinc-300"
+      }`}
     >
       {label}
     </span>

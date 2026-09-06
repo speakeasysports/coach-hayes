@@ -1,7 +1,7 @@
 /**
  * AdminRepository over Drizzle/libSQL — the seam between the admin UI and the
- * store. Swapping lib/admin/repo.ts from mockRepo to this is the only change
- * the UI needs; every route and action already depends on the interface.
+ * store. Every route and action depends on the interface in ./contract, never
+ * on this file directly — lib/admin/repo.ts is the only place it is named.
  *
  * TWO INVARIANTS carried from the schema design, enforced here rather than
  * documented:
@@ -402,10 +402,6 @@ export const dbRepo: AdminRepository = {
       .update(videos)
       .set({ reviewedAt: nowIso(), published: false })
       .where(inArray(videos.id, ids.map(num)));
-  },
-
-  async skipVideo() {
-    // Ordering only — no state change, by design.
   },
 
   async getVideo(id): Promise<VideoDetail | null> {

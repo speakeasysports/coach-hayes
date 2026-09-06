@@ -1,46 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  getBoard,
-  POSITIONS,
-  STATUSES,
-  type Position,
-  type Recruit,
-  type Status,
-} from "@/lib/board";
-
+import { getBigBoard, type BoardPlayer } from "@/lib/db/public";
+import { POSITIONS, type Position } from "@/lib/schema";
 import { FilterBar } from "@/components/site/filter-bar";
 import { RecruitCard } from "@/components/site/recruit-card";
 
 export const metadata: Metadata = {
   title: "Big Board",
   description:
-    "Every Georgia recruit by position — each name linked to a Coach Hayes film breakdown.",
+    "Every Georgia recruit Coach Hayes is tracking, by position — each name linked to a film breakdown.",
+  alternates: { canonical: "/big-board" },
 };
 
 type Search = { status?: string; class?: string };
 
-function parseStatus(raw: string | undefined): Status | undefined {
-  if (!raw) return undefined;
-  return (STATUSES as readonly string[]).includes(raw)
-    ? (raw as Status)
-    : undefined;
-}
-
 function parseClass(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
   const n = Number(raw);
-  return Number.isInteger(n) && n >= 2024 && n <= 2035 ? n : undefined;
-}
-
-function groupByPosition(recruits: Recruit[]): Map<Position, Recruit[]> {
-  const groups = new Map<Position, Recruit[]>();
-  for (const r of recruits) {
-    const arr = groups.get(r.position) ?? [];
-    arr.push(r);
-    groups.set(r.position, arr);
-  }
-  return groups;
+  return Number.isInteger(n) && n >= 2020 && n <= 2035 ? n : undefined;
 }
 
 export default async function BigBoardPage({
@@ -48,21 +25,29 @@ export default async function BigBoardPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const all = await getBoard();
-
-  if (all.length === 0) {
-    return <EmptyBoard />;
-  }
+  const all = await getBigBoard();
+  if (all.length === 0) return <EmptyBoard />;
 
   const sp = await searchParams;
-  const activeStatus = parseStatus(sp.status);
+  // Status is validated against what the board actually holds rather than the
+  // full career enum — an unknown value simply falls through to no filter.
+  const known = new Set(all.map((p) => p.status));
+  const activeStatus =
+    sp.status && known.has(sp.status as BoardPlayer["status"])
+      ? sp.status
+      : undefined;
   const activeClass = parseClass(sp.class);
 
   let filtered = all;
-  if (activeStatus) filtered = filtered.filter((r) => r.status === activeStatus);
-  if (activeClass) filtered = filtered.filter((r) => r.classYear === activeClass);
+  if (activeStatus) filtered = filtered.filter((p) => p.status === activeStatus);
+  if (activeClass) filtered = filtered.filter((p) => p.classYear === activeClass);
 
-  const groups = groupByPosition(filtered);
+  const groups = new Map<Position, BoardPlayer[]>();
+  for (const p of filtered) {
+    const arr = groups.get(p.position) ?? [];
+    arr.push(p);
+    groups.set(p.position, arr);
+  }
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
@@ -74,89 +59,55 @@ export default async function BigBoardPage({
           The Big Board
         </h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Every Georgia recruit by position. Each name links to a Coach Hayes
-          film breakdown.
+          Every recruit Coach is tracking, by position.{" "}
+          <span className="text-zinc-500">{all.length} on the board</span>
         </p>
       </header>
 
       <FilterBar
-        recruits={all}
+        players={all}
         activeStatus={activeStatus}
         activeClass={activeClass}
       />
 
       {filtered.length === 0 ? (
-        <EmptyFilterState
-          activeStatus={activeStatus}
-          activeClass={activeClass}
-        />
+        <div className="mt-12 flex flex-col items-center gap-4 rounded-xl border border-border bg-surface p-10 text-center">
+          <p className="text-lg font-semibold text-white">
+            No recruits match these filters.
+          </p>
+          <Link
+            href="/big-board"
+            className="rounded-md border border-border bg-surface-2 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-brand-red"
+          >
+            Clear filters
+          </Link>
+        </div>
       ) : (
         <div className="mt-10 flex flex-col gap-12">
           {POSITIONS.map((pos) => {
             const rows = groups.get(pos);
-            if (!rows || rows.length === 0) return null;
+            if (!rows?.length) return null;
             return (
-              <PositionSection key={pos} position={pos} recruits={rows} />
+              <section key={pos}>
+                <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
+                  <span>{pos}</span>
+                  <span className="text-base font-normal text-muted">
+                    {rows.length}
+                  </span>
+                </h2>
+                <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {rows.map((p) => (
+                    <li key={p.slug}>
+                      <RecruitCard player={p} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             );
           })}
         </div>
       )}
     </section>
-  );
-}
-
-function PositionSection({
-  position,
-  recruits,
-}: {
-  position: Position;
-  recruits: Recruit[];
-}) {
-  return (
-    <section>
-      <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
-        <span>{position}</span>
-        <span className="text-base font-normal text-muted">
-          {recruits.length}
-        </span>
-      </h2>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {recruits.map((r, i) => (
-          <li key={`${r.name}-${i}`}>
-            <RecruitCard recruit={r} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function EmptyFilterState({
-  activeStatus,
-  activeClass,
-}: {
-  activeStatus?: Status;
-  activeClass?: number;
-}) {
-  const parts: string[] = [];
-  if (activeStatus) parts.push(`status: ${activeStatus}`);
-  if (activeClass) parts.push(`class: ${activeClass}`);
-
-  return (
-    <div className="mt-12 flex flex-col items-center gap-4 rounded-xl border border-border bg-surface p-10 text-center">
-      <p className="text-lg font-semibold text-white">
-        No recruits match these filters.
-      </p>
-      {parts.length > 0 && (
-        <p className="text-sm text-muted">Active: {parts.join(" · ")}</p>
-      )}
-      <Link
-        href="/big-board"
-        className="rounded-md border border-border bg-surface-2 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-brand-red"
-      >
-        Clear filters
-      </Link>
-    </div>
   );
 }
 
@@ -170,7 +121,7 @@ function EmptyBoard() {
         The Big Board is being built
       </h1>
       <p className="max-w-xl text-pretty text-base text-zinc-400">
-        Coach is loading the first set of breakdowns. Check back soon.
+        Coach is loading the first set of recruits. Check back soon.
       </p>
     </section>
   );

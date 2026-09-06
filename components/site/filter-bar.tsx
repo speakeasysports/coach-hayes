@@ -1,106 +1,84 @@
 import Link from "next/link";
-import { STATUSES, type Recruit, type Status } from "@/lib/board";
+import type { BoardPlayer } from "@/lib/db/public";
 
 type Props = {
-  recruits: Recruit[];
-  activeStatus?: Status;
+  players: BoardPlayer[];
+  activeStatus?: string;
   activeClass?: number;
 };
 
-export function FilterBar({ recruits, activeStatus, activeClass }: Props) {
-  const yearOptions = Array.from(
-    new Set(recruits.map((r) => r.classYear)),
-  ).sort((a, b) => b - a);
+/**
+ * Status options come from the data, not the full PlayerStatus enum — that
+ * enum spans the whole career from "target" to "nfl", and showing fifteen
+ * chips for a board carrying three of them is noise.
+ */
+export function FilterBar({ players, activeStatus, activeClass }: Props) {
+  const statuses = [...new Set(players.map((p) => p.status))].sort();
+  const years = [...new Set(players.map((p) => p.classYear).filter(Boolean))]
+    .sort((a, b) => (b as number) - (a as number)) as number[];
 
-  // Faceted counts: each row's counts reflect the OTHER row's active filter,
-  // so the number on a chip = what you'd see if you clicked it.
   const classScoped = activeClass
-    ? recruits.filter((r) => r.classYear === activeClass)
-    : recruits;
+    ? players.filter((p) => p.classYear === activeClass)
+    : players;
   const statusScoped = activeStatus
-    ? recruits.filter((r) => r.status === activeStatus)
-    : recruits;
+    ? players.filter((p) => p.status === activeStatus)
+    : players;
 
-  const statusCounts = new Map<Status, number>();
-  for (const r of classScoped) {
-    statusCounts.set(r.status, (statusCounts.get(r.status) ?? 0) + 1);
-  }
-
-  const classCounts = new Map<number, number>();
-  for (const r of statusScoped) {
-    classCounts.set(r.classYear, (classCounts.get(r.classYear) ?? 0) + 1);
-  }
-
-  function buildHref(
-    dim: "status" | "class",
-    value: string | number | undefined,
-  ): string {
-    const params = new URLSearchParams();
+  const href = (dim: "status" | "class", value: string | number | undefined) => {
+    const q = new URLSearchParams();
     if (dim === "status") {
-      if (value) params.set("status", String(value));
-      if (activeClass != null) params.set("class", String(activeClass));
+      if (value) q.set("status", String(value));
+      if (activeClass != null) q.set("class", String(activeClass));
     } else {
-      if (activeStatus) params.set("status", activeStatus);
-      if (value != null) params.set("class", String(value));
+      if (activeStatus) q.set("status", activeStatus);
+      if (value != null) q.set("class", String(value));
     }
-    const qs = params.toString();
-    return qs ? `/big-board?${qs}` : "/big-board";
-  }
+    const s = q.toString();
+    return s ? `/big-board?${s}` : "/big-board";
+  };
 
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-6">
-      <ChipRow label="Status">
-        <Chip
-          href={buildHref("status", undefined)}
-          active={!activeStatus}
-          count={classScoped.length}
-        >
-          All
-        </Chip>
-        {STATUSES.map((s) => (
-          <Chip
-            key={s}
-            href={buildHref("status", s)}
-            active={activeStatus === s}
-            count={statusCounts.get(s) ?? 0}
-          >
-            {s}
-          </Chip>
-        ))}
-      </ChipRow>
-
-      {yearOptions.length > 1 && (
-        <ChipRow label="Class">
-          <Chip
-            href={buildHref("class", undefined)}
-            active={activeClass == null}
-            count={statusScoped.length}
-          >
+      {statuses.length > 1 && (
+        <Row label="Status">
+          <Chip href={href("status", undefined)} active={!activeStatus} count={classScoped.length}>
             All
           </Chip>
-          {yearOptions.map((y) => (
+          {statuses.map((s) => (
+            <Chip
+              key={s}
+              href={href("status", s)}
+              active={activeStatus === s}
+              count={classScoped.filter((p) => p.status === s).length}
+            >
+              {s.replace(/-/g, " ")}
+            </Chip>
+          ))}
+        </Row>
+      )}
+
+      {years.length > 1 && (
+        <Row label="Class">
+          <Chip href={href("class", undefined)} active={activeClass == null} count={statusScoped.length}>
+            All
+          </Chip>
+          {years.map((y) => (
             <Chip
               key={y}
-              href={buildHref("class", y)}
+              href={href("class", y)}
               active={activeClass === y}
-              count={classCounts.get(y) ?? 0}
+              count={statusScoped.filter((p) => p.classYear === y).length}
             >
               {y}
             </Chip>
           ))}
-        </ChipRow>
+        </Row>
       )}
     </div>
   );
 }
 
-function ChipRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -122,18 +100,17 @@ function Chip({
   count: number;
   children: React.ReactNode;
 }) {
-  const base =
-    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors";
-  const tone = active
-    ? "border-brand-red bg-brand-red/10 text-white font-semibold"
-    : "border-border bg-surface text-zinc-300 hover:border-brand-red hover:text-white";
-
   return (
-    <Link href={href} className={`${base} ${tone}`}>
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm capitalize transition-colors ${
+        active
+          ? "border-brand-red bg-brand-red/10 font-semibold text-white"
+          : "border-border bg-surface text-zinc-300 hover:border-brand-red hover:text-white"
+      }`}
+    >
       <span>{children}</span>
-      <span className={active ? "text-white/80" : "text-zinc-500"}>
-        {count}
-      </span>
+      <span className={active ? "text-white/80" : "text-zinc-500"}>{count}</span>
     </Link>
   );
 }
