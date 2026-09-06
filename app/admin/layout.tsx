@@ -25,6 +25,7 @@ export default async function AdminLayout({
         <AdminLink href="/admin/queue">Queue</AdminLink>
         <AdminLink href="/admin/players">Players</AdminLink>
         <AdminLink href="/admin/concepts">Concepts</AdminLink>
+        <AdminLink href="/admin/content">Content</AdminLink>
         <AdminLink href="/admin/import">Import</AdminLink>
         <div className="ml-auto flex items-center gap-4">
           <Link

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getPlayerIndex } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
 import { filmCountLabel } from "@/lib/counts";
+import { getCopy } from "@/lib/content/get-copy";
 import {
   SECTION_ANCHOR,
   SectionNav,
@@ -10,23 +11,25 @@ import {
 } from "@/components/site/section-nav";
 import { POSITIONS, POSITION_GROUPS, type Position } from "@/lib/schema";
 
-export const metadata: Metadata = {
-  title: "Players",
-  description:
-    "Every Georgia player Coach Hayes has broken down on film, grouped by position.",
-  alternates: { canonical: "/players" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return {
+    title: "Players",
+    description: copy["players.meta.description"],
+    alternates: { canonical: "/players" },
+  };
+}
 
 export default async function PlayersIndexPage() {
-  const players = await getPlayerIndex();
+  const [players, copy] = await Promise.all([getPlayerIndex(), getCopy()]);
 
   if (players.length === 0) {
     return (
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-5 px-4 py-24 text-center sm:px-6">
-        <h1 className="text-4xl font-bold tracking-tight">Players</h1>
-        <p className="text-zinc-400">
-          Film breakdowns are being indexed. Check back soon.
-        </p>
+        <h1 className="text-4xl font-bold tracking-tight">
+          {copy["players.heading"]}
+        </h1>
+        <p className="text-zinc-400">{copy["players.empty"]}</p>
       </section>
     );
   }
@@ -42,13 +45,13 @@ export default async function PlayersIndexPage() {
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
       <header className="mb-8">
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-          Film room
+          {copy["players.eyebrow"]}
         </span>
         <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
-          Players
+          {copy["players.heading"]}
         </h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Every Georgia player broken down on film, grouped by position.{" "}
+          {copy["players.intro"]}{" "}
           <span className="text-zinc-500">
             {players.length} players ·{" "}
             {filmCountLabel(

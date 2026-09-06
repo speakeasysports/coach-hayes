@@ -9,22 +9,27 @@ import {
 import { getThumbnailUrl } from "@/lib/youtube";
 import { filmCountLabel } from "@/lib/counts";
 import { CONCEPT_FAMILIES } from "@/lib/schema";
+import { getCopy } from "@/lib/content/get-copy";
 
-export const metadata: Metadata = {
-  title: "Playbook",
-  description:
-    "Every scheme and concept Coach Hayes breaks down on film — run game, pass game, coverage, fronts and technique.",
-  alternates: { canonical: "/playbook" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return {
+    title: "Playbook",
+    description: copy["playbook.meta.description"],
+    alternates: { canonical: "/playbook" },
+  };
+}
 
 export default async function PlaybookIndexPage() {
-  const concepts = await getConceptIndex();
+  const [concepts, copy] = await Promise.all([getConceptIndex(), getCopy()]);
 
   if (concepts.length === 0) {
     return (
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-5 px-4 py-24 text-center sm:px-6">
-        <h1 className="text-4xl font-bold tracking-tight">Playbook</h1>
-        <p className="text-zinc-400">Concepts are being indexed. Check back soon.</p>
+        <h1 className="text-4xl font-bold tracking-tight">
+          {copy["playbook.heading"]}
+        </h1>
+        <p className="text-zinc-400">{copy["playbook.empty"]}</p>
       </section>
     );
   }
@@ -40,11 +45,13 @@ export default async function PlaybookIndexPage() {
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
       <header className="mb-8">
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-          X&rsquo;s &amp; O&rsquo;s
+          {copy["playbook.eyebrow"]}
         </span>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">Playbook</h1>
+        <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
+          {copy["playbook.heading"]}
+        </h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Every concept broken down on film, grouped by what it does.{" "}
+          {copy["playbook.intro"]}{" "}
           <span className="text-zinc-500">{concepts.length} concepts</span>
         </p>
       </header>

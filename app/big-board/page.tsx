@@ -4,13 +4,17 @@ import { getBigBoard, type BoardPlayer } from "@/lib/db/public";
 import { POSITIONS, type Position } from "@/lib/schema";
 import { FilterBar } from "@/components/site/filter-bar";
 import { RecruitCard } from "@/components/site/recruit-card";
+import { getCopy } from "@/lib/content/get-copy";
+import type { Copy } from "@/lib/content/copy";
 
-export const metadata: Metadata = {
-  title: "Big Board",
-  description:
-    "Every Georgia recruit Coach Hayes is tracking, by position — each name linked to a film breakdown.",
-  alternates: { canonical: "/big-board" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return {
+    title: "Big Board",
+    description: copy["bigBoard.meta.description"],
+    alternates: { canonical: "/big-board" },
+  };
+}
 
 type Search = { status?: string; class?: string };
 
@@ -25,8 +29,8 @@ export default async function BigBoardPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const all = await getBigBoard();
-  if (all.length === 0) return <EmptyBoard />;
+  const [all, copy] = await Promise.all([getBigBoard(), getCopy()]);
+  if (all.length === 0) return <EmptyBoard copy={copy} />;
 
   const sp = await searchParams;
   // Status is validated against what the board actually holds rather than the
@@ -53,13 +57,13 @@ export default async function BigBoardPage({
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
       <header className="mb-8">
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-          Recruits
+          {copy["bigBoard.eyebrow"]}
         </span>
         <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
-          The Big Board
+          {copy["bigBoard.heading"]}
         </h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Every recruit Coach is tracking, by position.{" "}
+          {copy["bigBoard.intro"]}{" "}
           <span className="text-zinc-500">{all.length} on the board</span>
         </p>
       </header>
@@ -73,7 +77,7 @@ export default async function BigBoardPage({
       {filtered.length === 0 ? (
         <div className="mt-12 flex flex-col items-center gap-4 rounded-xl border border-border bg-surface p-10 text-center">
           <p className="text-lg font-semibold text-white">
-            No recruits match these filters.
+            {copy["bigBoard.noMatches"]}
           </p>
           <Link
             href="/big-board"
@@ -111,18 +115,17 @@ export default async function BigBoardPage({
   );
 }
 
-function EmptyBoard() {
+function EmptyBoard({ copy }: { copy: Copy }) {
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-5 px-4 py-24 text-center sm:px-6">
       <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-        Recruits
+        {copy["bigBoard.eyebrow"]}
       </span>
       <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-        The Big Board is being built
+        {copy["bigBoard.empty.heading"]}
       </h1>
       <p className="max-w-xl text-pretty text-base text-zinc-400">
-        Coach is loading the first set of recruits. In the meantime, the film
-        room is open.
+        {copy["bigBoard.empty.body"]}
       </p>
       {/*
         The board is linked from the nav and a homepage card, so this state is

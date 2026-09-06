@@ -36,6 +36,7 @@ import type {
   PlayerStatus,
   Topic,
 } from "@/lib/schema";
+import type { CopyKind } from "@/lib/content/copy";
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -282,6 +283,40 @@ export type ConceptInput = {
 };
 
 // ---------------------------------------------------------------------------
+// Page copy
+//
+// Headings, paragraphs and button labels on the public pages. The registry of
+// what is editable lives in lib/content/copy.ts; the store holds OVERRIDES
+// ONLY, so a key with no row renders the default that ships in the code.
+//
+// There is no create or delete here on purpose. Coach cannot invent a field —
+// nothing would render it — and clearing one is a save with an empty value,
+// which drops the row and restores the default.
+// ---------------------------------------------------------------------------
+export type CopyFieldState = {
+  key: string;
+  label: string;
+  kind: CopyKind;
+  help?: string;
+  maxLength?: number;
+  /** What ships in the code. Shown as the placeholder and as "revert to". */
+  fallback: string;
+  /** The stored override, or null when this field is still the default. */
+  value: string | null;
+  updatedAt: string | null;
+};
+
+export type CopyPageState = {
+  id: string;
+  label: string;
+  /** Public URL this copy appears on. */
+  path: string;
+  fields: CopyFieldState[];
+  /** How many fields carry an override. Drives the index list. */
+  customized: number;
+};
+
+// ---------------------------------------------------------------------------
 // Sheet import
 //
 // The sheet is an INPUT, not a live dependency. Coach drafts the board in
@@ -384,6 +419,23 @@ export interface AdminRepository {
 
   /** Refuses when any video still carries the concept. */
   deleteConcept(id: ConceptId): Promise<void>;
+
+  // ---- page copy --------------------------------------------------------
+  /** Every editable surface with its fields, defaults and current overrides. */
+  listPageCopy(): Promise<CopyPageState[]>;
+
+  /** One surface, or null when the id is not in the registry. */
+  getPageCopy(pageId: string): Promise<CopyPageState | null>;
+
+  /**
+   * Writes overrides for one surface. A value that is blank, or identical to
+   * the field's default, DELETES the row rather than storing it — clearing a
+   * field in the admin means "go back to the shipped text".
+   *
+   * Ignores keys that are not in the registry: a field retired in code should
+   * not fail a save of the fields that remain.
+   */
+  savePageCopy(pageId: string, values: Record<string, string>): Promise<void>;
 
   // ---- sheet import -----------------------------------------------------
   getImportSource(): Promise<ImportSource>;

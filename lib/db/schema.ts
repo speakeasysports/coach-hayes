@@ -238,6 +238,24 @@ export type ConceptRow = typeof concepts.$inferSelect;
 export type SeriesRow = typeof series.$inferSelect;
 
 /**
+ * Editable page copy — headings, paragraphs and button labels on the public
+ * pages. OVERRIDES ONLY: the registry of what is editable, and the default
+ * text for each field, lives in lib/content/copy.ts. A key with no row here
+ * renders the default that ships in the code.
+ *
+ * That split is deliberate. The JSX has to reference a key for it to render at
+ * all, so the registry belongs next to the code that consumes it; and because
+ * defaults are code, an empty table, a deleted row or a failed migration can
+ * never blank out the homepage.
+ */
+export const pageContent = pgTable("page_content", {
+  /** Registry key, e.g. "home.hero.headline". */
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Small key/value store for admin state that has no natural home on a
  * content row: last sync outcome, the configured Sheets import URL.
  *

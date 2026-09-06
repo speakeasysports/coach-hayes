@@ -1,27 +1,37 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { PATREON_URL } from "@/lib/links";
 import { SocialIcon } from "@/components/site/social-icon";
+import { Emphasis } from "@/components/site/emphasis";
 import { Suspense } from "react";
 import {
   LatestVideos,
   LatestVideosSkeleton,
 } from "@/components/site/latest-videos";
+import { getCopy } from "@/lib/content/get-copy";
+import type { Copy } from "@/lib/content/copy";
 
-export default function Home() {
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return { description: copy["home.meta.description"] };
+}
+
+export default async function Home() {
+  const copy = await getCopy();
   return (
     <>
-      <Hero />
+      <Hero copy={copy} />
       <Suspense fallback={<LatestVideosSkeleton />}>
-        <LatestVideos />
+        <LatestVideos copy={copy} />
       </Suspense>
-      <FeatureCards />
-      <SupportCta />
+      <FeatureCards copy={copy} />
+      <SupportCta copy={copy} />
     </>
   );
 }
 
-function Hero() {
+function Hero({ copy }: { copy: Copy }) {
   return (
     <section className="relative overflow-hidden border-b border-border">
       <div
@@ -41,12 +51,10 @@ function Hero() {
         </div>
         <div className="flex flex-col items-center gap-6 md:items-start">
           <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl">
-            Connecting fans to the{" "}
-            <span className="text-brand-red">fundamentals</span> of football.
+            <Emphasis text={copy["home.hero.headline"]} />
           </h1>
           <p className="max-w-xl text-pretty text-lg text-zinc-300">
-            X’s &amp; O’s from a coach’s perspective. Player breakdowns, recruit
-            evaluations, and weekly college football film breakdowns.
+            {copy["home.hero.subhead"]}
           </p>
           {/*
             Audience first, then Patreon. The hero used to lead with the money
@@ -61,13 +69,13 @@ function Hero() {
               href="/film"
               className="inline-flex items-center gap-2 rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
             >
-              Watch the breakdowns →
+              {copy["home.hero.primaryCta"]}
             </Link>
             <Link
               href="/players"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-5 py-3 text-base font-semibold text-white transition-colors hover:border-brand-red"
             >
-              Browse players
+              {copy["home.hero.secondaryCta"]}
             </Link>
           </div>
         </div>
@@ -85,39 +93,29 @@ type Card = {
   cta: string;
 };
 
-const CARDS: Card[] = [
-  {
-    href: "/big-board",
-    eyebrow: "Recruits",
-    title: "Big Board",
-    body:
-      "Every recruit by position with a film breakdown. Filter by status, class year, or position group.",
-    cta: "Browse the board",
-  },
-  {
-    href: "/playbook",
-    eyebrow: "Game film",
-    title: "Weekly Playbook",
-    body:
-      "Georgia's installs, week by week. Plays grouped by formation, each one linked to a film breakdown.",
-    cta: "Open the playbook",
-  },
-  {
-    href: "https://www.youtube.com/@CoachHayesHudl",
-    external: true,
-    eyebrow: "Watch",
-    title: "Latest video & podcast",
-    body:
-      "New breakdowns weekly on YouTube, plus the podcast on Spotify and Apple. Subscribe so you don't miss the install.",
-    cta: "Open the channel",
-  },
-];
+/** Where each card points. The words are editable; the destinations are not. */
+const CARD_LINKS = [
+  { id: "board", href: "/big-board" },
+  { id: "playbook", href: "/playbook" },
+  { id: "channel", href: "https://www.youtube.com/@CoachHayesHudl", external: true },
+] as const;
 
-function FeatureCards() {
+function cards(copy: Copy): Card[] {
+  return CARD_LINKS.map((link) => ({
+    href: link.href,
+    external: "external" in link ? link.external : undefined,
+    eyebrow: copy[`home.cards.${link.id}.eyebrow` as keyof Copy],
+    title: copy[`home.cards.${link.id}.title` as keyof Copy],
+    body: copy[`home.cards.${link.id}.body` as keyof Copy],
+    cta: copy[`home.cards.${link.id}.cta` as keyof Copy],
+  }));
+}
+
+function FeatureCards({ copy }: { copy: Copy }) {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
       <div className="grid gap-6 md:grid-cols-3">
-        {CARDS.map((c) => {
+        {cards(copy).map((c) => {
           const inner = (
             <>
               <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
@@ -158,20 +156,18 @@ function FeatureCards() {
   );
 }
 
-function SupportCta() {
+function SupportCta({ copy }: { copy: Copy }) {
   return (
     <section className="border-t border-border bg-surface">
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-14 text-center sm:px-6">
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-          Go deeper
+          {copy["home.support.eyebrow"]}
         </span>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          The full install, on Patreon
+          {copy["home.support.heading"]}
         </h2>
         <p className="max-w-lg text-pretty text-sm leading-relaxed text-zinc-400">
-          Everything on this site stays free. The deeper installs and the
-          play-by-play film studies — the ones that take a whole evening to cut
-          — live on Patreon.
+          {copy["home.support.body"]}
         </p>
         <a
           href={PATREON_URL}
@@ -180,7 +176,7 @@ function SupportCta() {
           className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
         >
           <SocialIcon name="patreon" className="h-5 w-5" />
-          Support on Patreon
+          {copy["home.support.cta"]}
         </a>
       </div>
     </section>

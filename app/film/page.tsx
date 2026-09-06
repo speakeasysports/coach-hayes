@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getFilmIndex } from "@/lib/db/public";
+import { getCopy } from "@/lib/content/get-copy";
 import {
   SECTION_ANCHOR,
   SectionNav,
@@ -8,24 +9,26 @@ import {
 } from "@/components/site/section-nav";
 import { getThumbnailUrl } from "@/lib/youtube";
 
-export const metadata: Metadata = {
-  title: "Film",
-  description:
-    "Every Coach Hayes film breakdown — Georgia players, schemes and situations, newest first.",
-  alternates: { canonical: "/film" },
-};
-
-/** Films with no series assigned in the admin land here. */
-const UNGROUPED = "Other breakdowns";
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return {
+    title: "Film",
+    description: copy["film.meta.description"],
+    alternates: { canonical: "/film" },
+  };
+}
 
 export default async function FilmIndexPage() {
-  const films = await getFilmIndex();
+  const [films, copy] = await Promise.all([getFilmIndex(), getCopy()]);
+  const ungrouped = copy["film.ungrouped"];
 
   if (films.length === 0) {
     return (
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-5 px-4 py-24 text-center sm:px-6">
-        <h1 className="text-4xl font-bold tracking-tight">Film</h1>
-        <p className="text-zinc-400">Breakdowns are being indexed. Check back soon.</p>
+        <h1 className="text-4xl font-bold tracking-tight">
+          {copy["film.heading"]}
+        </h1>
+        <p className="text-zinc-400">{copy["film.empty"]}</p>
       </section>
     );
   }
@@ -34,7 +37,7 @@ export default async function FilmIndexPage() {
   // it's the one a returning viewer is looking for.
   const bySeries = new Map<string, typeof films>();
   for (const f of films) {
-    const key = f.seriesName ?? UNGROUPED;
+    const key = f.seriesName ?? ungrouped;
     const arr = bySeries.get(key) ?? [];
     arr.push(f);
     bySeries.set(key, arr);
@@ -44,8 +47,8 @@ export default async function FilmIndexPage() {
   // top, so the page opened on the bucket that means "not sorted yet" and
   // buried every series that gives the page its structure.
   const groups = [...bySeries.entries()].sort((a, b) => {
-    if (a[0] === UNGROUPED) return 1;
-    if (b[0] === UNGROUPED) return -1;
+    if (a[0] === ungrouped) return 1;
+    if (b[0] === ungrouped) return -1;
     return b[1].length - a[1].length;
   });
 
@@ -53,11 +56,13 @@ export default async function FilmIndexPage() {
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
       <header className="mb-8">
         <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-          Film room
+          {copy["film.eyebrow"]}
         </span>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">Film</h1>
+        <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
+          {copy["film.heading"]}
+        </h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Every full breakdown, grouped by series.{" "}
+          {copy["film.intro"]}{" "}
           <span className="text-zinc-500">{films.length} breakdowns</span>
         </p>
       </header>
