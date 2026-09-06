@@ -29,6 +29,7 @@ export default async function AdminLayout({
         <AdminLink href="/admin/content">Content</AdminLink>
         <AdminLink href="/admin/patreon">Patreon</AdminLink>
         <AdminLink href="/admin/import">Import</AdminLink>
+        <AdminLink href="/admin/handbook">Handbook</AdminLink>
         <div className="ml-auto flex items-center gap-4">
           <Link
             href="/"
