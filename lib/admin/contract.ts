@@ -131,6 +131,12 @@ export type VideoEditorialFields = {
   headline: string | null;
   analysis: string | null;
   keyMoments: KeyMoment[];
+  /**
+   * Companion Patreon post when this video is a preview of one. Rejected
+   * unless it is a patreon.com POST url — the campaign root appears in the
+   * description boilerplate of most videos and is not a per-video link.
+   */
+  patreonUrl: string | null;
 };
 
 export type VideoTagFields = {

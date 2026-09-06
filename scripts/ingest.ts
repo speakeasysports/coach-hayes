@@ -56,6 +56,7 @@ import {
   type PlayerStatus,
 } from "../lib/schema";
 import { findBoilerplateLines, LEXICON, stripBoilerplate } from "../lib/ingest/lexicon";
+import { extractPatreonPostUrl } from "../lib/patreon";
 import { buildMatcher, type RosterPlayer } from "../lib/ingest/matcher";
 import { buildTagger } from "../lib/ingest/tagger";
 import { RosterCacheSchema, ROSTER_CACHE_FILE } from "./fetch-roster";
@@ -317,6 +318,7 @@ async function main() {
     conceptLinks: 0,
     topicLinks: 0,
     groupOverrides: 0,
+    patreonLinked: 0,
   };
 
   for (const v of catalog) {
@@ -324,6 +326,16 @@ async function main() {
     const slug =
       prior?.slug ??
       mintSlug(v.title, `video-${v.videoId.toLowerCase()}`, takenSlugs);
+
+    // A companion Patreon post, if the description links one. Read from the
+    // BOILERPLATE-STRIPPED text and restricted to /posts/ urls: the channel
+    // template carries a bare patreon.com/CoachHayesHudl on most videos, and
+    // treating that as a per-video link would badge the whole catalog as a
+    // preview. Seed only — upsertVideoFromYouTube writes it on insert and
+    // never on conflict, so Coach's edit always wins.
+    const strippedDescription = stripBoilerplate(v.description, boilerplate);
+    const patreonUrl = extractPatreonPostUrl(strippedDescription);
+    if (patreonUrl && !prior) stats.patreonLinked++;
 
     const { id } = await upsertVideoFromYouTube(db, {
       youtubeId: v.videoId,
@@ -333,6 +345,7 @@ async function main() {
       publishedAt: v.publishedAt,
       durationSec: v.durationSec,
       views: v.views,
+      patreonUrl,
     });
     if (prior) stats.updated++;
     else stats.created++;
@@ -343,10 +356,7 @@ async function main() {
       continue;
     }
 
-    const tagInput = {
-      title: v.title,
-      strippedDescription: stripBoilerplate(v.description, boilerplate),
-    };
+    const tagInput = { title: v.title, strippedDescription };
     const tags = tagger(tagInput);
     const matches =
       matcher?.({ title: tagInput.title, description: tagInput.strippedDescription }) ??
@@ -444,6 +454,13 @@ async function main() {
   console.log(
     `links     ${stats.playerLinks} player · ${stats.conceptLinks} concept · ${stats.topicLinks} topic · ${stats.groupOverrides} position-group overrides`,
   );
+  if (stats.patreonLinked > 0) {
+    console.log(
+      `patreon   ${stats.patreonLinked} new video${
+        stats.patreonLinked === 1 ? "" : "s"
+      } linked to a Patreon post from the description`,
+    );
+  }
   for (const s of seriesCounts) console.log(`series    ${s.name}: ${s.n}`);
   console.log(
     `players   ${linkedPlayers[0].n}/${totalPlayers[0].n} linked to ≥1 video (only these get pages)`,

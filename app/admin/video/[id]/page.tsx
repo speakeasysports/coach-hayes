@@ -66,6 +66,7 @@ export default async function VideoEditPage({
         id={video.id}
         headline={editorial.headline}
         analysis={editorial.analysis}
+        patreonUrl={editorial.patreonUrl}
         published={video.published}
       />
 

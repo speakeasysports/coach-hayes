@@ -97,6 +97,11 @@ export default async function FilmIndexPage() {
                         loading="lazy"
                         className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
                       />
+                      {f.patreonUrl && (
+                        <span className="absolute left-2 top-2 rounded bg-brand-red px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          Preview
+                        </span>
+                      )}
                     </div>
                     <div className="p-3">
                       <p className="text-sm font-medium text-white">{f.title}</p>

@@ -15,6 +15,13 @@
       "when": 1788721533852,
       "tag": "0001_wet_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788722520508,
+      "tag": "0002_open_gravity",
+      "breakpoints": true
     }
   ]
 }

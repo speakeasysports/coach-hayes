@@ -228,6 +228,8 @@ export type FilmPage = {
   analysis: string | null;
   keyMoments: Array<{ atSec: number; label: string }>;
   seriesName: string | null;
+  /** Set when this video is a preview of a Patreon post. */
+  patreonUrl: string | null;
   players: FilmPlayer[];
   concepts: Array<{ slug: string; label: string }>;
   topics: string[];
@@ -316,6 +318,7 @@ export async function getFilmPage(slug: string): Promise<FilmPage | null> {
     analysis: v.analysis,
     keyMoments: (v.keyMoments as Array<{ atSec: number; label: string }>) ?? [],
     seriesName: row.series?.name ?? null,
+    patreonUrl: v.patreonUrl,
     players: playerRows,
     concepts: conceptRows,
     topics: topicRows.map((t) => t.topic),
@@ -330,6 +333,8 @@ export type FilmIndexEntry = {
   publishedAt: string;
   views: number;
   seriesName: string | null;
+  /** Non-null when this video previews a Patreon post — cards badge it. */
+  patreonUrl: string | null;
 };
 
 /**
@@ -352,6 +357,7 @@ export async function getFilmIndex(): Promise<FilmIndexEntry[]> {
       publishedAt: videos.publishedAt,
       views: videos.views,
       seriesName: series.name,
+      patreonUrl: videos.patreonUrl,
     })
     .from(videos)
     .leftJoin(series, eq(videos.seriesId, series.id))
@@ -364,6 +370,7 @@ export async function getFilmIndex(): Promise<FilmIndexEntry[]> {
     publishedAt: r.publishedAt,
     views: r.views,
     seriesName: r.seriesName,
+    patreonUrl: r.patreonUrl,
   }));
 }
 

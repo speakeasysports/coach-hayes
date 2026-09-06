@@ -132,6 +132,16 @@ export const videos = pgTable(
     // editorial
     headline: text("headline"),
     analysis: text("analysis"),
+    /**
+     * Companion Patreon post, when this video is a preview of one. A URL here
+     * is what makes the video a "Patreon preview": there is no separate flag,
+     * so the two can never disagree.
+     *
+     * Seeded on first insert from the description (see lib/patreon.ts) and
+     * editorial from then on — it is absent from VIDEO_SYNCED_COLUMNS, so a
+     * re-sync can never overwrite what Coach set.
+     */
+    patreonUrl: text("patreon_url"),
     keyMoments: jsonb("key_moments")
       .$type<KeyMoment[]>()
       .notNull()

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getFilmPage, getFilmSlugs } from "@/lib/db/public";
 import { getThumbnailUrl, getWatchUrl } from "@/lib/youtube";
 import { SITE_URL } from "@/lib/site";
+import { SocialIcon } from "@/components/site/social-icon";
 import { VideoEmbed } from "./video-embed";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -18,6 +19,36 @@ function isoDuration(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `PT${m}M${s}S`;
+}
+
+/**
+ * The conversion surface. Patreon's paid video cannot be embedded off-site —
+ * no oEmbed, no public post fetch, no thumbnail on the API's Post resource —
+ * so the preview clip plays here and the full study is a link. Sits directly
+ * under the player, where someone who just watched the teaser is looking.
+ */
+function PatreonCta({ url }: { url: string }) {
+  return (
+    <aside className="mt-5 flex flex-col gap-3 rounded-lg border border-brand-red/40 bg-brand-red/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-semibold text-white">
+          This is a preview. The full breakdown is on Patreon.
+        </p>
+        <p className="mt-1 text-sm text-zinc-400">
+          Every play, start to finish, with the all-22 and the install notes.
+        </p>
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex shrink-0 items-center gap-2 self-start rounded-md bg-brand-red px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-red-hover sm:self-auto"
+      >
+        <SocialIcon name="patreon" className="h-4 w-4" />
+        Watch the full breakdown
+      </a>
+    </aside>
+  );
 }
 
 function readableDuration(sec: number): string {
@@ -103,11 +134,18 @@ export default async function FilmPage({ params }: Props) {
             <span>{film.seriesName}</span>
           </>
         )}
+        {film.patreonUrl && (
+          <span className="rounded border border-brand-red bg-brand-red/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+            Preview
+          </span>
+        )}
       </p>
 
       <div className="mt-6">
         <VideoEmbed youtubeId={film.youtubeId} title={film.title} />
       </div>
+
+      {film.patreonUrl && <PatreonCta url={film.patreonUrl} />}
 
       {film.players.length > 0 && (
         <section className="mt-8">

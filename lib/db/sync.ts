@@ -66,7 +66,16 @@ function excludedSet<T extends PgTable>(
   return set;
 }
 
-export type VideoSyncInput = { youtubeId: string; slug: string } & Pick<
+export type VideoSyncInput = {
+  youtubeId: string;
+  slug: string;
+  /**
+   * Seed value: written on first insert, editorial afterwards — the same deal
+   * `status` and `aliases` get on players. Ingest extracts it from the video
+   * description; Coach owns it once the row exists.
+   */
+  patreonUrl?: string | null;
+} & Pick<
   typeof videos.$inferInsert,
   (typeof VIDEO_SYNCED_COLUMNS)[number]
 >;

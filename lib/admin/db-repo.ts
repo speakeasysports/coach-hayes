@@ -39,6 +39,7 @@ import { diffImport, type ExistingPlayer } from "@/lib/board/import";
 import { mintSlug } from "@/lib/db/slug";
 import { isValidPattern } from "@/lib/ingest/tagger";
 import { parseBoardCsv } from "@/lib/board/sheet";
+import { normalizePatreonUrl } from "@/lib/patreon";
 import { COPY_PAGES, copyPage, type CopyPage } from "@/lib/content/copy";
 import type {
   AdminRepository,
@@ -465,6 +466,7 @@ export const dbRepo: AdminRepository = {
         headline: row.headline,
         analysis: row.analysis,
         keyMoments: (row.keyMoments as { atSec: number; label: string }[]) ?? [],
+        patreonUrl: row.patreonUrl,
       },
       tags: {
         players: pl.map((p) => ({
@@ -490,6 +492,20 @@ export const dbRepo: AdminRepository = {
     if (fields.headline !== undefined) patch.headline = fields.headline;
     if (fields.analysis !== undefined) patch.analysis = fields.analysis;
     if (fields.keyMoments !== undefined) patch.keyMoments = fields.keyMoments;
+    if (fields.patreonUrl !== undefined) {
+      if (fields.patreonUrl === null) patch.patreonUrl = null;
+      else {
+        const url = normalizePatreonUrl(fields.patreonUrl);
+        if (!url) {
+          throw new Error(
+            "That is not a Patreon post link. It should look like " +
+              "patreon.com/CoachHayesHudl/posts/… — the campaign page on its " +
+              "own will not do.",
+          );
+        }
+        patch.patreonUrl = url;
+      }
+    }
     if (Object.keys(patch).length === 0) return;
     await getDb().update(videos).set(patch).where(eq(videos.id, num(id)));
   },

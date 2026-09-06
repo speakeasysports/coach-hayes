@@ -217,14 +217,24 @@ export async function applyImportAction(
 // ---------------------------------------------------------------------------
 // video + player edit
 // ---------------------------------------------------------------------------
+/**
+ * Returns the error rather than throwing: patreonUrl is validated in the
+ * repository, and "that is not a post link" is a correction for Coach to read,
+ * not a stack trace.
+ */
 export async function saveEditorialAction(
   id: string,
   fields: Partial<VideoEditorialFields>,
-) {
+): Promise<{ error: string | null }> {
   await requireSession();
-  await repo.saveVideoEditorial(id as VideoId, fields);
+  try {
+    await repo.saveVideoEditorial(id as VideoId, fields);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
   revalidatePath(`/admin/video/${id}`);
   revalidateAdmin();
+  return { error: null };
 }
 
 export async function setPublishedAction(id: string, published: boolean) {
