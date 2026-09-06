@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/admin/session";
 import { repo } from "@/lib/admin/repo";
 import { PlayerForm } from "./player-form";
+import { VideoRows } from "../../videos/video-rows";
 
 export const metadata: Metadata = { title: "Player" };
 export const dynamic = "force-dynamic";
@@ -17,6 +18,12 @@ export default async function PlayerEditPage({
   const { id } = await params;
   const player = await repo.getPlayer(id as never);
   if (!player) notFound();
+  const films = await repo.listVideosForPlayer(id as never);
+  const live = films.filter((f) => f.published).length;
+  // Tagging is generous, so a name can appear on dozens of unpublished videos.
+  // Showing every one turns this page into a list; the live ones plus a few
+  // are what anyone actually came here for.
+  const shown = films.slice(0, 12);
 
   const { synced, editable } = player;
 
@@ -71,6 +78,31 @@ export default async function PlayerEditPage({
         aliases={editable.aliases}
         bio={editable.bio}
       />
+
+      {films.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+            His videos
+          </h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            {live} live · {films.length} tagged. Open one to change its
+            headline, add an analysis, or point it at a Patreon post.
+          </p>
+          <VideoRows items={shown} />
+          {films.length > shown.length && (
+            <p className="mt-3 text-sm text-muted">
+              {films.length - shown.length} more, mostly still in the queue —{" "}
+              <Link
+                href="/admin/videos"
+                className="underline transition-colors hover:text-white"
+              >
+                all videos
+              </Link>
+              .
+            </p>
+          )}
+        </section>
+      )}
     </section>
   );
 }

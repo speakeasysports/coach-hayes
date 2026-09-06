@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { repo } from "@/lib/admin/repo";
 
-export const metadata: Metadata = { title: "Content" };
+export const metadata: Metadata = { title: "Page text" };
 
 export default async function ContentIndexPage() {
   const pages = await repo.listPageCopy();
@@ -12,12 +12,14 @@ export default async function ContentIndexPage() {
     <section>
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-white">
-          Page content
+          Page text
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          Headings, paragraphs and button labels on the public pages. Edits go
-          live within a few seconds — no deploy. Clear a box to put back the
-          wording the site shipped with.
+          The fixed wording on each public page — headings, intro lines and
+          button labels. (For descriptions of a particular player or concept,
+          use <strong className="text-zinc-200">Descriptions</strong>.) Edits go
+          live within a few seconds. Clear a box to put back the wording the
+          site shipped with.
         </p>
         <p className="mt-1 text-sm text-muted">
           {pages.length} pages ·{" "}

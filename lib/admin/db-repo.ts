@@ -14,7 +14,7 @@
  *      re-tag can distinguish a human decision from a machine guess and
  *      leave it alone.
  */
-import { and, eq, inArray, isNull, like, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   adminMeta,
@@ -30,6 +30,8 @@ import {
   videoTopics,
 } from "@/lib/db/schema";
 import {
+  SHORT_MAX_SECONDS,
+  deriveFormat,
   extractSurname,
   findAmbiguousSurnames,
   type Position,
@@ -53,6 +55,8 @@ import type {
   PatreonPostId,
   PatreonPostInput,
   PatreonPostListItem,
+  VideoListFilter,
+  VideoListItem,
   WritingItem,
   WritingKind,
   WritingQueue,
@@ -245,15 +249,42 @@ export const dbRepo: AdminRepository = {
     };
   },
 
+  /**
+   * Counts PAGES, not rows. The old version counted every player and concept
+   * ever tagged, including on the 169 videos still sitting in the queue, so
+   * the dashboard claimed 83 players and 87 concepts when 53 and 39 had pages.
+   *
+   * Each count mirrors the public query that decides whether a page exists,
+   * so the scoreboard and the site can't drift apart.
+   */
   async getPublishedCounts(): Promise<PublishedCounts> {
     const db = getDb();
-    const [[v], [p], [c], [t]] = await Promise.all([
-      db.select({ n: sql<number>`count(*)::int` }).from(videos).where(eq(videos.published, true)),
-      db.select({ n: sql<number>`count(distinct ${videoPlayers.playerId})::int` }).from(videoPlayers),
-      db.select({ n: sql<number>`count(*)::int` }).from(concepts),
-      db.select({ n: sql<number>`count(distinct ${videoTopics.topic})::int` }).from(videoTopics),
+    const published = eq(videos.published, true);
+    const longForm = gt(videos.durationSec, SHORT_MAX_SECONDS);
+
+    const [[v], [f], [p], [c]] = await Promise.all([
+      db.select({ n: sql<number>`count(*)::int` }).from(videos).where(published),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(videos)
+        .where(and(published, longForm)),
+      db
+        .select({ n: sql<number>`count(distinct ${videoPlayers.playerId})::int` })
+        .from(videoPlayers)
+        .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
+        .where(published),
+      db
+        .select({ n: sql<number>`count(distinct ${videoConcepts.conceptId})::int` })
+        .from(videoConcepts)
+        .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+        .where(published),
     ]);
-    return { videos: v.n, players: p.n, concepts: c.n, topics: t.n };
+    return {
+      videosPublished: v.n,
+      filmPages: f.n,
+      playerPages: p.n,
+      conceptPages: c.n,
+    };
   },
 
   async getQueueItems(bucket, opts): Promise<QueueItem[]> {
@@ -415,6 +446,88 @@ export const dbRepo: AdminRepository = {
       .update(videos)
       .set({ reviewedAt: nowIso(), published: false })
       .where(inArray(videos.id, ids.map(num)));
+  },
+
+  async listVideos(
+    filter?: VideoListFilter,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<VideoListItem[]> {
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: videos.id,
+        youtubeId: videos.youtubeId,
+        title: videos.title,
+        headline: videos.headline,
+        publishedAt: videos.publishedAt,
+        durationSec: videos.durationSec,
+        published: videos.published,
+        reviewedAt: videos.reviewedAt,
+        patreonUrl: videos.patreonUrl,
+      })
+      .from(videos)
+      .where(videoFilter(filter))
+      .orderBy(desc(videos.publishedAt), desc(videos.id))
+      .limit(opts?.limit ?? 50)
+      .offset(opts?.offset ?? 0);
+
+    if (rows.length === 0) return [];
+    const names = await playerNamesFor(rows.map((r) => r.id));
+    return rows.map((r) => ({
+      id: vid(r.id),
+      youtubeId: r.youtubeId,
+      title: r.headline ?? r.title,
+      publishedAt: r.publishedAt,
+      durationSec: r.durationSec,
+      format: deriveFormat(r.durationSec),
+      published: r.published,
+      reviewedAt: r.reviewedAt,
+      hasPatreonUrl: r.patreonUrl != null,
+      playerNames: names.get(r.id) ?? [],
+    }));
+  },
+
+  async countVideos(filter?: VideoListFilter): Promise<number> {
+    const [{ n }] = await getDb()
+      .select({ n: sql<number>`count(*)::int` })
+      .from(videos)
+      .where(videoFilter(filter));
+    return n;
+  },
+
+  async listVideosForPlayer(id: PlayerId): Promise<VideoListItem[]> {
+    const rows = await getDb()
+      .select({
+        id: videos.id,
+        youtubeId: videos.youtubeId,
+        title: videos.title,
+        headline: videos.headline,
+        publishedAt: videos.publishedAt,
+        durationSec: videos.durationSec,
+        published: videos.published,
+        reviewedAt: videos.reviewedAt,
+        patreonUrl: videos.patreonUrl,
+      })
+      .from(videos)
+      .innerJoin(videoPlayers, eq(videoPlayers.videoId, videos.id))
+      .where(eq(videoPlayers.playerId, num(id)))
+      // Live ones first. A heavily-tagged player can carry seventy videos of
+      // which three are published, and the published three are exactly the
+      // ones that had no route back to them before this list existed.
+      .orderBy(desc(videos.published), desc(videos.publishedAt));
+
+    return rows.map((r) => ({
+      id: vid(r.id),
+      youtubeId: r.youtubeId,
+      title: r.headline ?? r.title,
+      publishedAt: r.publishedAt,
+      durationSec: r.durationSec,
+      format: deriveFormat(r.durationSec),
+      published: r.published,
+      reviewedAt: r.reviewedAt,
+      hasPatreonUrl: r.patreonUrl != null,
+      playerNames: [],
+    }));
   },
 
   async getVideo(id): Promise<VideoDetail | null> {
@@ -1106,6 +1219,42 @@ export const dbRepo: AdminRepository = {
     });
   },
 };
+
+// ---------------------------------------------------------------------------
+// Video list helpers
+// ---------------------------------------------------------------------------
+
+function videoFilter(f?: VideoListFilter) {
+  const parts = [];
+  if (f?.query) {
+    // Match the raw title and the editorial headline: Coach searches for the
+    // words he remembers, and those may live in either one.
+    const q = `%${f.query.replace(/[%_]/g, "")}%`;
+    parts.push(
+      sql`(${videos.title} ilike ${q} or coalesce(${videos.headline}, '') ilike ${q})`,
+    );
+  }
+  if (f?.published !== undefined) parts.push(eq(videos.published, f.published));
+  if (f?.format === "short") parts.push(lte(videos.durationSec, SHORT_MAX_SECONDS));
+  if (f?.format === "long") parts.push(gt(videos.durationSec, SHORT_MAX_SECONDS));
+  if (f?.patreonOnly) parts.push(isNotNull(videos.patreonUrl));
+  return parts.length > 0 ? and(...parts) : undefined;
+}
+
+async function playerNamesFor(ids: number[]): Promise<Map<number, string[]>> {
+  const rows = await getDb()
+    .select({ videoId: videoPlayers.videoId, name: players.name })
+    .from(videoPlayers)
+    .innerJoin(players, eq(players.id, videoPlayers.playerId))
+    .where(inArray(videoPlayers.videoId, ids));
+  const out = new Map<number, string[]>();
+  for (const r of rows) {
+    const arr = out.get(r.videoId) ?? [];
+    arr.push(r.name);
+    out.set(r.videoId, arr);
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Writing queue helpers

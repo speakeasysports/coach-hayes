@@ -14,19 +14,20 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   // The login page lives under /admin but must not render the shell.
-  if (!(await hasSession())) return <>{children}</>;
+  if (!(await hasSession())) return <main className="flex flex-1 flex-col">{children}</main>;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
       <nav className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border pb-4">
         <Link href="/admin" className="text-sm font-semibold text-white">
           Admin
         </Link>
         <AdminLink href="/admin/queue">Queue</AdminLink>
+        <AdminLink href="/admin/videos">Videos</AdminLink>
         <AdminLink href="/admin/players">Players</AdminLink>
         <AdminLink href="/admin/concepts">Concepts</AdminLink>
-        <AdminLink href="/admin/write">Writing</AdminLink>
-        <AdminLink href="/admin/content">Content</AdminLink>
+        <AdminLink href="/admin/write">Descriptions</AdminLink>
+        <AdminLink href="/admin/content">Page text</AdminLink>
         <AdminLink href="/admin/patreon">Patreon</AdminLink>
         <AdminLink href="/admin/import">Import</AdminLink>
         <AdminLink href="/admin/handbook">Handbook</AdminLink>

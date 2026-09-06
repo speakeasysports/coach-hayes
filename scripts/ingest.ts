@@ -32,6 +32,7 @@ import { z } from "zod";
 import { closeDb, getDb, type Db } from "../lib/db/client";
 import { mintSlug } from "../lib/db/slug";
 import {
+  adminMeta,
   concepts,
   players,
   series,
@@ -465,6 +466,40 @@ async function main() {
   console.log(
     `players   ${linkedPlayers[0].n}/${totalPlayers[0].n} linked to ≥1 video (only these get pages)`,
   );
+
+  const nowIso = new Date().toISOString();
+
+  // Record the sync for the admin dashboard. Until now nothing wrote this:
+  // the only writer was the dashboard's own "Sync YouTube now" button, which
+  // stamped a timestamp without running anything, so "Last sync 1h ago" was a
+  // reassurance the button had invented. The pipeline is what actually syncs,
+  // so the pipeline is what should say so.
+  await db
+    .insert(adminMeta)
+    .values({
+      key: "sync",
+      value: {
+        lastSyncAt: nowIso,
+        state: "ok",
+        error: null,
+        videosAdded: stats.created,
+        videosUpdated: stats.updated,
+      },
+      updatedAt: nowIso,
+    })
+    .onConflictDoUpdate({
+      target: adminMeta.key,
+      set: {
+        value: {
+          lastSyncAt: nowIso,
+          state: "ok",
+          error: null,
+          videosAdded: stats.created,
+          videosUpdated: stats.updated,
+        },
+        updatedAt: nowIso,
+      },
+    });
   if (vanished.length > 0) {
     console.log(
       `\n⚠  ${vanished.length} published video${

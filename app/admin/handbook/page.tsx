@@ -21,7 +21,7 @@ const STEPS: Array<[string, string]> = [
   ["03", "The dashboard"],
   ["04", "The queue — your main job"],
   ["05", "Players"],
-  ["06", "Writing — the bit only you can do"],
+  ["06", "Descriptions — the bit only you can do"],
   ["07", "The Big Board"],
   ["08", "Patreon: previews and the shelf"],
   ["09", "Changing the words on the site"],
@@ -69,7 +69,7 @@ export default async function HandbookPage() {
               aren&rsquo;t.
             </li>
             <li>
-              Open <strong className="text-white">Writing</strong> and do two or
+              Open <strong className="text-white">Descriptions</strong> and do two or
               three. Not all of them — just the ones at the top.
             </li>
           </ol>
@@ -99,8 +99,17 @@ export default async function HandbookPage() {
         </p>
         <Note label="Where things stand right now">
           <p>
-            <strong className="text-white">{counts.videos} videos</strong> are
-            live on the site.{" "}
+            <strong className="text-white">
+              {counts.videosPublished} videos
+            </strong>{" "}
+            are live on the site, across{" "}
+            <strong className="text-white">{counts.filmPages} film</strong>,{" "}
+            <strong className="text-white">{counts.playerPages} player</strong>{" "}
+            and{" "}
+            <strong className="text-white">
+              {counts.conceptPages} playbook
+            </strong>{" "}
+            pages.{" "}
             {waiting > 0 ? (
               <>
                 Another{" "}
@@ -156,7 +165,7 @@ export default async function HandbookPage() {
         <p>
           Across the top you&rsquo;ll find the places you can go. Most you&rsquo;ll
           use rarely; <strong className="text-white">Queue</strong> and{" "}
-          <strong className="text-white">Writing</strong> are the two that matter
+          <strong className="text-white">Descriptions</strong> are the two that matter
           week to week.
         </p>
         <Shot
@@ -279,7 +288,7 @@ export default async function HandbookPage() {
         />
       </Step>
 
-      <Step n="06" title="Writing — the bit only you can do">
+      <Step n="06" title="Descriptions — the bit only you can do">
         <p>
           A player page or a playbook page is currently a heading and a grid of
           thumbnails. Fine for someone who already knows what they&rsquo;re
@@ -287,7 +296,7 @@ export default async function HandbookPage() {
         </p>
         <p>
           Two or three sentences fixes that. The{" "}
-          <strong className="text-white">Writing</strong> tab is where you do it,
+          <strong className="text-white">Descriptions</strong> tab is where you do it,
           and it&rsquo;s built so you never have to hunt.
         </p>
         <H3>How it&rsquo;s ordered</H3>
@@ -474,7 +483,7 @@ export default async function HandbookPage() {
       <Step n="09" title="Changing the words on the site">
         <p>
           Headings, paragraphs and button labels on the public pages are yours to
-          change. <strong className="text-white">Content</strong> lists the
+          change. <strong className="text-white">Page text</strong> lists the
           pages; open one and you get every bit of text on it in a box.
         </p>
         <H3>How the boxes work</H3>

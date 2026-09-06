@@ -93,11 +93,6 @@ export async function archiveVideosAction(ids: string[]) {
   revalidateAdmin();
 }
 
-export async function syncNowAction() {
-  await requireSession();
-  await repo.triggerSync();
-  revalidateAdmin();
-}
 
 // ---------------------------------------------------------------------------
 // concepts

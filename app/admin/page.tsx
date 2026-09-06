@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSession } from "@/lib/admin/session";
 import { repo } from "@/lib/admin/repo";
-import { syncNowAction } from "./actions";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -50,21 +49,13 @@ export default async function AdminDashboard() {
       )}
 
       <div className="mt-8 grid gap-3 sm:grid-cols-4">
-        <Stat label="Live videos" value={published.videos} />
-        <Stat label="Players" value={published.players} />
-        <Stat label="Concepts" value={published.concepts} />
-        <Stat label="Topics" value={published.topics} />
+        <Stat label="Videos published" value={published.videosPublished} />
+        <Stat label="Film pages" value={published.filmPages} />
+        <Stat label="Player pages" value={published.playerPages} />
+        <Stat label="Playbook pages" value={published.conceptPages} />
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-6">
-        <form action={syncNowAction}>
-          <button
-            type="submit"
-            className="min-h-[44px] rounded-md border border-brand-red bg-brand-red/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-red/20"
-          >
-            Sync YouTube now
-          </button>
-        </form>
+      <div className="mt-8 border-t border-border pt-6">
         <SyncLine
           state={sync.state}
           lastSyncAt={sync.lastSyncAt}
@@ -94,13 +85,20 @@ function SyncLine({
       </p>
     );
   }
-  if (state === "never-run") {
-    return <p className="text-sm text-muted">Never synced.</p>;
+  if (state === "never-run" || !lastSyncAt) {
+    return (
+      <p className="text-sm text-muted">
+        No sync recorded yet. New videos arrive when the sync runs — there is
+        no button here, because nothing you press in a browser can pull a
+        channel.
+      </p>
+    );
   }
   return (
     <p className="text-sm text-muted">
-      Last sync {lastSyncAt ? relative(lastSyncAt) : "—"}
-      {added > 0 ? ` · ${added} new` : ""}
+      Last sync {relative(lastSyncAt)}
+      {added > 0 ? ` · ${added} new video${added === 1 ? "" : "s"}` : " · nothing new"}
+      . New videos arrive when the sync runs, not on a button here.
     </p>
   );
 }

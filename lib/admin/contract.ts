@@ -169,6 +169,41 @@ export type TagUpdate = {
 };
 
 // ---------------------------------------------------------------------------
+// Video list
+//
+// Exists because /admin/video/[id] was reachable from exactly one place — the
+// Edit button in the queue — and the queue holds only videos that are
+// unpublished AND unreviewed. Confirming a video set both, so it left the
+// queue and became unreachable: all 286 published videos had no edit path at
+// all. Nothing live on the site could be given a headline, an analysis, or a
+// Patreon link.
+// ---------------------------------------------------------------------------
+export type VideoListItem = {
+  id: VideoId;
+  youtubeId: string;
+  /** The editorial headline when set, otherwise the YouTube title. */
+  title: string;
+  publishedAt: string;
+  durationSec: number;
+  format: Format;
+  published: boolean;
+  /** Non-null once a human has confirmed or corrected it. */
+  reviewedAt: string | null;
+  /** Whether this video previews a Patreon post. */
+  hasPatreonUrl: boolean;
+  playerNames: string[];
+};
+
+export type VideoListFilter = {
+  /** Case-insensitive substring of the title. */
+  query?: string;
+  published?: boolean;
+  format?: Format;
+  /** Only videos that carry a Patreon post link. */
+  patreonOnly?: boolean;
+};
+
+// ---------------------------------------------------------------------------
 // Players
 // ---------------------------------------------------------------------------
 export type PlayerListItem = {
@@ -246,11 +281,18 @@ export type SyncStatus = {
   videosUpdated: number;
 };
 
+/**
+ * What is actually ON the site, page by page. This used to count tags across
+ * every video including the unreviewed ones, so the dashboard reported 83
+ * players and 87 concepts while 53 and 39 had pages — a scoreboard that
+ * overstated the thing it existed to measure.
+ */
 export type PublishedCounts = {
-  videos: number;
-  players: number;
-  concepts: number;
-  topics: number;
+  /** Published videos. Most are shorts; only long-form earns a film page. */
+  videosPublished: number;
+  filmPages: number;
+  playerPages: number;
+  conceptPages: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -450,6 +492,19 @@ export interface AdminRepository {
    * survive, so a later lexicon improvement can reconsider it. Never deletes.
    */
   archiveVideos(ids: VideoId[]): Promise<void>;
+
+  // ---- videos -----------------------------------------------------------
+  /** Newest first. Every video, published or not — the queue is a subset. */
+  listVideos(
+    filter?: VideoListFilter,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<VideoListItem[]>;
+
+  /** Total matching the filter, for paging. */
+  countVideos(filter?: VideoListFilter): Promise<number>;
+
+  /** A player's videos, for the link the player page was missing. */
+  listVideosForPlayer(id: PlayerId): Promise<VideoListItem[]>;
 
   // ---- video edit -------------------------------------------------------
   getVideo(id: VideoId): Promise<VideoDetail | null>;
