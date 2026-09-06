@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
-import { PATREON_URL } from "@/lib/links";
-import { SocialIcon } from "@/components/site/social-icon";
 import {
   LatestVideos,
   LatestVideosSkeleton,
@@ -48,21 +46,26 @@ function Hero() {
             X’s &amp; O’s from a coach’s perspective. Player breakdowns, recruit
             evaluations, and weekly college football film breakdowns.
           </p>
+          {/*
+            Audience first, then Patreon. The hero used to lead with the money
+            ask and follow it with the Big Board — which is empty until Coach
+            imports a sheet, so a first-time visitor's two most prominent
+            choices were "pay me" and "come back later". The film room is the
+            thing worth showing first; the nav already carries a Patreon button
+            for anyone who has decided.
+          */}
           <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
-            <a
-              href={PATREON_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/film"
               className="inline-flex items-center gap-2 rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
             >
-              <SocialIcon name="patreon" className="h-5 w-5" />
-              Support on Patreon
-            </a>
+              Watch the breakdowns →
+            </Link>
             <Link
-              href="/big-board"
+              href="/players"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-5 py-3 text-base font-semibold text-white transition-colors hover:border-brand-red"
             >
-              Explore the Big Board →
+              Browse players
             </Link>
           </div>
         </div>

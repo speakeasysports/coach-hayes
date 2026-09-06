@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/film" },
 };
 
+/** Films with no series assigned in the admin land here. */
+const UNGROUPED = "Other breakdowns";
+
 export default async function FilmIndexPage() {
   const films = await getFilmIndex();
 
@@ -26,12 +29,20 @@ export default async function FilmIndexPage() {
   // it's the one a returning viewer is looking for.
   const bySeries = new Map<string, typeof films>();
   for (const f of films) {
-    const key = f.seriesName ?? "Other breakdowns";
+    const key = f.seriesName ?? UNGROUPED;
     const arr = bySeries.get(key) ?? [];
     arr.push(f);
     bySeries.set(key, arr);
   }
-  const groups = [...bySeries.entries()].sort((a, b) => b[1].length - a[1].length);
+  // Named series first, largest first; the unassigned catch-all always last.
+  // Sorting purely by size put "Other breakdowns" — 51 of 73 films — at the
+  // top, so the page opened on the bucket that means "not sorted yet" and
+  // buried every series that gives the page its structure.
+  const groups = [...bySeries.entries()].sort((a, b) => {
+    if (a[0] === UNGROUPED) return 1;
+    if (b[0] === UNGROUPED) return -1;
+    return b[1].length - a[1].length;
+  });
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">

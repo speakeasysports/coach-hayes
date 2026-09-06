@@ -23,6 +23,14 @@ import {
   type PositionGroup,
 } from "@/lib/schema";
 
+/**
+ * Long-form vs. short, as aggregates. The site's rule is that a "breakdown" is
+ * long-form film with its own page and a "clip" is a short; these two keep
+ * every count on the site speaking that same language.
+ */
+const FILM_COUNT = sql<number>`count(*) filter (where videos.duration_sec > ${SHORT_MAX_SECONDS})::int`;
+const CLIP_COUNT = sql<number>`count(*) filter (where videos.duration_sec <= ${SHORT_MAX_SECONDS})::int`;
+
 export type PublicVideo = {
   youtubeId: string;
   slug: string;
@@ -31,6 +39,15 @@ export type PublicVideo = {
   durationSec: number;
   views: number;
   isShort: boolean;
+  /**
+   * True when this video has its own /film/[slug] page, so a card can link
+   * internally instead of straight out to YouTube. Deliberately mirrors the
+   * LONG_FORM predicate below rather than !isShort: a zero-duration item
+   * (livestream) counts as long-form for format purposes but is excluded from
+   * getFilmSlugs, and /film/[slug] sets dynamicParams=false — linking on
+   * !isShort would 404.
+   */
+  hasFilmPage: boolean;
 };
 
 export type PublicPlayer = {
@@ -142,6 +159,7 @@ export async function getPlayerPage(slug: string): Promise<PlayerPage | null> {
       durationSec: v.durationSec,
       views: v.views,
       isShort: v.durationSec > 0 && v.durationSec <= SHORT_MAX_SECONDS,
+      hasFilmPage: v.durationSec > SHORT_MAX_SECONDS,
     })),
     concepts: conceptRows,
   };
@@ -152,7 +170,10 @@ export type PlayerIndexEntry = {
   name: string;
   position: Position;
   stars: number | null;
-  videoCount: number;
+  /** Long-form breakdowns — the things that have a /film page. */
+  filmCount: number;
+  /** Shorts. Counted apart so a card never calls a 45-second clip a breakdown. */
+  clipCount: number;
   latestThumbnailId: string | null;
 };
 
@@ -165,7 +186,8 @@ export async function getPlayerIndex(): Promise<PlayerIndexEntry[]> {
       name: players.name,
       position: players.position,
       stars: players.stars,
-      videoCount: sql<number>`count(${videos.id})::int`,
+      filmCount: FILM_COUNT,
+      clipCount: CLIP_COUNT,
       latestThumbnailId: sql<string>`
         (select v2.youtube_id from videos v2
          join video_players vp2 on vp2.video_id = v2.id
@@ -178,7 +200,7 @@ export async function getPlayerIndex(): Promise<PlayerIndexEntry[]> {
     .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
     .where(eq(videos.published, true))
     .groupBy(players.id)
-    .orderBy(desc(sql`count(${videos.id})`), players.name);
+    .orderBy(sql`${FILM_COUNT} desc`, sql`count(*) desc`, players.name);
   return rows;
 }
 
@@ -462,7 +484,12 @@ export async function getConceptPage(slug: string): Promise<ConceptPage | null> 
 // ---------------------------------------------------------------------------
 export type PositionPage = {
   group: PositionGroup;
-  players: Array<{ slug: string; name: string; videoCount: number }>;
+  players: Array<{
+    slug: string;
+    name: string;
+    filmCount: number;
+    clipCount: number;
+  }>;
   films: Array<{ slug: string; title: string; youtubeId: string }>;
 };
 
@@ -475,14 +502,15 @@ export async function getPositionPage(
     .select({
       slug: players.slug,
       name: players.name,
-      videoCount: sql<number>`count(${videos.id})::int`,
+      filmCount: FILM_COUNT,
+      clipCount: CLIP_COUNT,
     })
     .from(players)
     .innerJoin(videoPlayers, eq(videoPlayers.playerId, players.id))
     .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
     .where(and(eq(players.position, group), eq(videos.published, true)))
     .groupBy(players.id)
-    .orderBy(desc(sql`count(${videos.id})`), players.name);
+    .orderBy(sql`${FILM_COUNT} desc`, sql`count(*) desc`, players.name);
 
   const [viaPlayers, viaOverride] = await Promise.all([
     db
@@ -559,8 +587,12 @@ export type BoardPlayer = {
   highSchool: string | null;
   status: PlayerStatus;
   committedTo: string | null;
-  /** Published film. Non-zero means the card links through to a player page. */
-  videoCount: number;
+  /**
+   * Published film, split the way the rest of the site splits it. Either being
+   * non-zero means the card links through to a player page.
+   */
+  filmCount: number;
+  clipCount: number;
   thumbnailId: string | null;
 };
 
@@ -577,10 +609,17 @@ export async function getBigBoard(): Promise<BoardPlayer[]> {
       highSchool: players.highSchool,
       status: players.status,
       committedTo: players.committedTo,
-      videoCount: sql<number>`(
+      filmCount: sql<number>`(
         select count(*)::int from video_players vp
         join videos v on v.id = vp.video_id
         where vp.player_id = players.id and v.published = true
+          and v.duration_sec > ${SHORT_MAX_SECONDS}
+      )`,
+      clipCount: sql<number>`(
+        select count(*)::int from video_players vp
+        join videos v on v.id = vp.video_id
+        where vp.player_id = players.id and v.published = true
+          and v.duration_sec <= ${SHORT_MAX_SECONDS}
       )`,
       thumbnailId: sql<string | null>`(
         select v.youtube_id from video_players vp

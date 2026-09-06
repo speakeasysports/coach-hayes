@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPlayerIndex } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
+import { filmCountLabel } from "@/lib/counts";
 import { POSITIONS, POSITION_GROUPS, type Position } from "@/lib/schema";
 
 export const metadata: Metadata = {
@@ -44,8 +45,11 @@ export default async function PlayersIndexPage() {
         <p className="mt-3 max-w-2xl text-zinc-400">
           Every Georgia player broken down on film, grouped by position.{" "}
           <span className="text-zinc-500">
-            {players.length} players · {players.reduce((n, p) => n + p.videoCount, 0)}{" "}
-            breakdowns
+            {players.length} players ·{" "}
+            {filmCountLabel(
+              players.reduce((n, p) => n + p.filmCount, 0),
+              players.reduce((n, p) => n + p.clipCount, 0),
+            )}
           </span>
         </p>
       </header>
@@ -92,8 +96,7 @@ export default async function PlayersIndexPage() {
                       <div className="p-3">
                         <p className="font-semibold text-white">{p.name}</p>
                         <p className="mt-0.5 text-xs text-muted">
-                          {p.videoCount}{" "}
-                          {p.videoCount === 1 ? "breakdown" : "breakdowns"}
+                          {filmCountLabel(p.filmCount, p.clipCount)}
                           {p.stars != null && ` · ${p.stars}★`}
                         </p>
                       </div>

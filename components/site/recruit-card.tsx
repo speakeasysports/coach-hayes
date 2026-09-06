@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { BoardPlayer } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
+import { filmCountLabel } from "@/lib/counts";
 
 /**
  * A Big Board card. When the player has published film the whole card links
@@ -8,7 +9,7 @@ import { getThumbnailUrl } from "@/lib/youtube";
  * dead-end list.
  */
 export function RecruitCard({ player }: { player: BoardPlayer }) {
-  const linked = player.videoCount > 0;
+  const linked = player.filmCount + player.clipCount > 0;
   const body = (
     <>
       {player.thumbnailId && (
@@ -52,7 +53,7 @@ export function RecruitCard({ player }: { player: BoardPlayer }) {
 
         <p className="mt-auto text-sm text-muted">
           {linked
-            ? `${player.videoCount} film ${player.videoCount === 1 ? "breakdown" : "breakdowns"} →`
+            ? `${filmCountLabel(player.filmCount, player.clipCount)} →`
             : "Film breakdown coming soon."}
         </p>
       </div>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPositionPage } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
+import { filmCountTitle } from "@/lib/counts";
 import { POSITION_GROUPS, type PositionGroup } from "@/lib/schema";
 
 type Props = { params: Promise<{ group: string }> };
@@ -88,7 +89,14 @@ export default async function PositionPage({ params }: Props) {
                   className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-white transition-colors hover:border-brand-red"
                 >
                   {p.name}
-                  <span className="text-xs text-muted">{p.videoCount}</span>
+                  {p.filmCount > 0 && (
+                    <span
+                      className="text-xs text-muted"
+                      title={filmCountTitle(p.filmCount, p.clipCount)}
+                    >
+                      {p.filmCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}

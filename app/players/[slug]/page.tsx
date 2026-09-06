@@ -7,6 +7,7 @@ import {
   type PublicVideo,
 } from "@/lib/db/public";
 import { getThumbnailUrl, getWatchUrl } from "@/lib/youtube";
+import { filmCountLabel } from "@/lib/counts";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -31,9 +32,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const bits = [player.position, player.highSchool, hometown(player)].filter(
     Boolean,
   );
-  const description = `${videos.length} Coach Hayes film breakdown${
-    videos.length === 1 ? "" : "s"
-  } of ${player.name}${bits.length ? ` — ${bits.join(", ")}` : ""}.`;
+  const counts = filmCountLabel(
+    videos.filter((v) => !v.isShort).length,
+    videos.filter((v) => v.isShort).length,
+  );
+  const description = `${counts} of ${player.name} from Coach Hayes${
+    bits.length ? ` — ${bits.join(", ")}` : ""
+  }.`;
 
   return {
     // Long-tail intent: people search a name plus "film" or "breakdown".
@@ -145,10 +150,13 @@ export default async function PlayerPage({ params }: Props) {
           <ul className="mt-3 flex flex-wrap gap-2">
             {concepts.map((c) => (
               <li key={c.slug}>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-sm text-zinc-300">
+                <Link
+                  href={`/playbook/${c.slug}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-sm text-zinc-300 transition-colors hover:border-brand-red hover:text-white"
+                >
                   {c.label}
                   <span className="text-zinc-500">{c.count}</span>
-                </span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -158,6 +166,12 @@ export default async function PlayerPage({ params }: Props) {
   );
 }
 
+/**
+ * Long-form film goes to its own page; shorts, which have none, still go out to
+ * YouTube. Player pages are the surface search traffic lands on, so every card
+ * that CAN keep a visitor on the site should — before this they all pointed
+ * straight at YouTube and /film/[slug] was reachable only from /film.
+ */
 function VideoCard({
   video,
   playerName,
@@ -167,14 +181,14 @@ function VideoCard({
   playerName: string;
   compact?: boolean;
 }) {
-  return (
-    <a
-      href={getWatchUrl(video.youtubeId)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
-      aria-label={`${video.title} — film breakdown of ${playerName}`}
-    >
+  const shell =
+    "group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red";
+  const label = `${video.title} — ${
+    video.hasFilmPage ? "film breakdown" : "clip"
+  } of ${playerName}`;
+
+  const body = (
+    <>
       <div className="relative aspect-video bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -195,6 +209,22 @@ function VideoCard({
           {video.views > 0 && ` · ${video.views.toLocaleString()} views`}
         </p>
       </div>
+    </>
+  );
+
+  return video.hasFilmPage ? (
+    <Link href={`/film/${video.slug}`} className={shell} aria-label={label}>
+      {body}
+    </Link>
+  ) : (
+    <a
+      href={getWatchUrl(video.youtubeId)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={shell}
+      aria-label={`${label} (opens on YouTube)`}
+    >
+      {body}
     </a>
   );
 }
