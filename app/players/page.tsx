@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPlayerIndex } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
-import { POSITIONS, type Position } from "@/lib/schema";
+import { POSITIONS, POSITION_GROUPS, type Position } from "@/lib/schema";
 
 export const metadata: Metadata = {
   title: "Players",
@@ -57,7 +57,16 @@ export default async function PlayersIndexPage() {
           return (
             <section key={pos}>
               <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
-                <span>{pos}</span>
+                {POSITION_GROUPS.includes(pos as (typeof POSITION_GROUPS)[number]) ? (
+                  <Link
+                    href={`/positions/${pos.toLowerCase()}`}
+                    className="transition-colors hover:text-brand-red"
+                  >
+                    {pos}
+                  </Link>
+                ) : (
+                  <span>{pos}</span>
+                )}
                 <span className="text-base font-normal text-muted">
                   {rows.length}
                 </span>

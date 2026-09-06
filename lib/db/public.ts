@@ -11,10 +11,16 @@ import {
   series,
   videoConcepts,
   videoPlayers,
+  videoPositionOverrides,
   videos,
   videoTopics,
 } from "./schema";
-import { SHORT_MAX_SECONDS, type Position } from "@/lib/schema";
+import {
+  SHORT_MAX_SECONDS,
+  type ConceptFamily,
+  type Position,
+  type PositionGroup,
+} from "@/lib/schema";
 
 export type PublicVideo = {
   youtubeId: string;
@@ -326,4 +332,208 @@ export async function getFilmIndex(): Promise<FilmIndexEntry[]> {
     views: r.views,
     seriesName: r.seriesName,
   }));
+}
+
+
+// ---------------------------------------------------------------------------
+// Playbook — /playbook/[concept]
+//
+// Pure aggregation: a concept page is a query over tags the ingest already
+// produced, not content anyone writes. A concept with no published film gets
+// no page, same thin-content rule as players and film.
+// ---------------------------------------------------------------------------
+export type ConceptIndexEntry = {
+  slug: string;
+  label: string;
+  family: ConceptFamily;
+  filmCount: number;
+  thumbnailId: string | null;
+};
+
+export async function getConceptSlugs(): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ slug: concepts.slug })
+    .from(concepts)
+    .innerJoin(videoConcepts, eq(videoConcepts.conceptId, concepts.id))
+    .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+    .where(eq(videos.published, true));
+  return rows.map((r) => r.slug);
+}
+
+export async function getConceptIndex(): Promise<ConceptIndexEntry[]> {
+  const rows = await getDb()
+    .select({
+      slug: concepts.slug,
+      label: concepts.label,
+      family: concepts.family,
+      filmCount: sql<number>`count(${videos.id})::int`,
+      thumbnailId: sql<string | null>`
+        (select v2.youtube_id from videos v2
+         join video_concepts vc2 on vc2.video_id = v2.id
+         where vc2.concept_id = ${concepts.id} and v2.published = true
+         order by v2.views desc limit 1)
+      `,
+    })
+    .from(concepts)
+    .innerJoin(videoConcepts, eq(videoConcepts.conceptId, concepts.id))
+    .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+    .where(eq(videos.published, true))
+    .groupBy(concepts.id)
+    .orderBy(desc(sql`count(${videos.id})`), concepts.label);
+  return rows;
+}
+
+export type ConceptPage = {
+  slug: string;
+  label: string;
+  family: ConceptFamily;
+  explainer: string | null;
+  films: Array<{ slug: string; title: string; youtubeId: string; publishedAt: string }>;
+  /**
+   * Shorts tagged with this concept. They have no page of their own, but many
+   * concepts live almost entirely in shorts — zone blocking is 11 clips to 1
+   * full breakdown — so omitting them leaves the page with nothing on it.
+   * Linked out to YouTube, exactly as player pages do.
+   */
+  clips: Array<{ youtubeId: string; title: string }>;
+  players: FilmPlayer[];
+};
+
+export async function getConceptPage(slug: string): Promise<ConceptPage | null> {
+  const db = getDb();
+  const [c] = await db.select().from(concepts).where(eq(concepts.slug, slug));
+  if (!c) return null;
+
+  const tagged = await db
+    .select({
+      id: videos.id,
+      slug: videos.slug,
+      title: videos.title,
+      headline: videos.headline,
+      youtubeId: videos.youtubeId,
+      publishedAt: videos.publishedAt,
+      durationSec: videos.durationSec,
+    })
+    .from(videos)
+    .innerJoin(videoConcepts, eq(videoConcepts.videoId, videos.id))
+    .where(and(eq(videoConcepts.conceptId, c.id), eq(videos.published, true)))
+    .orderBy(desc(videos.publishedAt));
+
+  if (tagged.length === 0) return null;
+
+  const longForm = tagged.filter((v) => v.durationSec > SHORT_MAX_SECONDS);
+
+  // Who shows up in film about this concept — the cross-link back to players.
+  const playerRows = await db
+    .selectDistinct({
+      slug: players.slug,
+      name: players.name,
+      position: players.position,
+    })
+    .from(players)
+    .innerJoin(videoPlayers, eq(videoPlayers.playerId, players.id))
+    .where(inArray(videoPlayers.videoId, tagged.map((v) => v.id)));
+
+  return {
+    slug: c.slug,
+    label: c.label,
+    family: c.family,
+    explainer: c.explainer,
+    films: longForm.map((v) => ({
+      slug: v.slug,
+      title: v.headline ?? v.title,
+      youtubeId: v.youtubeId,
+      publishedAt: v.publishedAt,
+    })),
+    clips: tagged
+      .filter((v) => v.durationSec <= SHORT_MAX_SECONDS)
+      .map((v) => ({ youtubeId: v.youtubeId, title: v.headline ?? v.title })),
+    players: playerRows,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Position hubs — /positions/[group]
+//
+// A video belongs to a group if any tagged player plays there, or if an
+// explicit override says so (room-level videos with no named player). That
+// mirrors derivePositionGroups in lib/schema.
+// ---------------------------------------------------------------------------
+export type PositionPage = {
+  group: PositionGroup;
+  players: Array<{ slug: string; name: string; videoCount: number }>;
+  films: Array<{ slug: string; title: string; youtubeId: string }>;
+};
+
+export async function getPositionPage(
+  group: PositionGroup,
+): Promise<PositionPage | null> {
+  const db = getDb();
+
+  const playerRows = await db
+    .select({
+      slug: players.slug,
+      name: players.name,
+      videoCount: sql<number>`count(${videos.id})::int`,
+    })
+    .from(players)
+    .innerJoin(videoPlayers, eq(videoPlayers.playerId, players.id))
+    .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
+    .where(and(eq(players.position, group), eq(videos.published, true)))
+    .groupBy(players.id)
+    .orderBy(desc(sql`count(${videos.id})`), players.name);
+
+  const [viaPlayers, viaOverride] = await Promise.all([
+    db
+      .selectDistinct({
+        slug: videos.slug,
+        title: videos.title,
+        headline: videos.headline,
+        youtubeId: videos.youtubeId,
+        publishedAt: videos.publishedAt,
+      })
+      .from(videos)
+      .innerJoin(videoPlayers, eq(videoPlayers.videoId, videos.id))
+      .innerJoin(players, eq(videoPlayers.playerId, players.id))
+      .where(
+        and(
+          eq(players.position, group),
+          eq(videos.published, true),
+          gt(videos.durationSec, SHORT_MAX_SECONDS),
+        ),
+      ),
+    db
+      .selectDistinct({
+        slug: videos.slug,
+        title: videos.title,
+        headline: videos.headline,
+        youtubeId: videos.youtubeId,
+        publishedAt: videos.publishedAt,
+      })
+      .from(videos)
+      .innerJoin(
+        videoPositionOverrides,
+        eq(videoPositionOverrides.videoId, videos.id),
+      )
+      .where(
+        and(
+          eq(videoPositionOverrides.positionGroup, group),
+          eq(videos.published, true),
+          gt(videos.durationSec, SHORT_MAX_SECONDS),
+        ),
+      ),
+  ]);
+
+  const seen = new Map<string, (typeof viaPlayers)[number]>();
+  for (const v of [...viaPlayers, ...viaOverride]) seen.set(v.slug, v);
+  const films = [...seen.values()]
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .map((v) => ({
+      slug: v.slug,
+      title: v.headline ?? v.title,
+      youtubeId: v.youtubeId,
+    }));
+
+  if (playerRows.length === 0 && films.length === 0) return null;
+  return { group, players: playerRows, films };
 }
