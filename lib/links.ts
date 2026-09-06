@@ -18,8 +18,7 @@ export type SocialKey =
   | "facebook"
   | "patreon"
   | "spotify"
-  | "apple"
-  | "twitch";
+  | "apple";
 
 export const SOCIAL_LINKS: Array<{ key: SocialKey; label: string; href: string }> = [
   { key: "youtube", label: "YouTube", href: "https://www.youtube.com/@CoachHayesHudl" },
@@ -30,5 +29,4 @@ export const SOCIAL_LINKS: Array<{ key: SocialKey; label: string; href: string }
   { key: "patreon", label: "Patreon", href: PATREON_URL },
   { key: "spotify", label: "Spotify Podcast", href: "https://open.spotify.com/show/3slnEdUyQJ9LwRDIWTBG5I" },
   { key: "apple", label: "Apple Podcasts", href: "https://podcasts.apple.com/us/podcast/coach-hayes-hudl/id1808311679" },
-  { key: "twitch", label: "Twitch", href: "https://www.twitch.tv/coachhayeshudl" },
 ];

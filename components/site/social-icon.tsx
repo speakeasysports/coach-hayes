@@ -55,11 +55,5 @@ export function SocialIcon({ name, className = "h-5 w-5" }: Props) {
           <path d="M12 1.7A9.3 9.3 0 0 0 6.7 18.6a.5.5 0 0 0 .8-.5l-.4-1.5a7.7 7.7 0 1 1 9.8 0l-.4 1.5a.5.5 0 0 0 .8.5A9.3 9.3 0 0 0 12 1.7Zm0 4.8a4.5 4.5 0 0 0-2.7 8.1.5.5 0 0 0 .8-.5l-.3-1a3 3 0 1 1 4.4 0l-.3 1a.5.5 0 0 0 .8.5A4.5 4.5 0 0 0 12 6.5Zm0 4.5a1.8 1.8 0 0 0-1.8 2.1l1 7.4a.8.8 0 0 0 1.6 0l1-7.4A1.8 1.8 0 0 0 12 11Z" />
         </svg>
       );
-    case "twitch":
-      return (
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
-          <path d="M4 2 2 6v14h5v3h3l3-3h4l6-6V2H4Zm17 11-3 3h-5l-3 3v-3H6V4h15v9ZM11 7h2v6h-2V7Zm6 0h2v6h-2V7Z" />
-        </svg>
-      );
   }
 }
