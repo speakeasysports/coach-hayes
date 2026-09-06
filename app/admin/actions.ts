@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/auth";
 import { requireSession } from "@/lib/admin/session";
 import { repo } from "@/lib/admin/repo";
+import { copyPage } from "@/lib/content/copy";
 import type {
   ConceptId,
   ConceptInput,
@@ -131,6 +132,39 @@ export async function deleteConceptAction(
   try {
     await repo.deleteConcept(id as ConceptId);
     revalidateConcepts();
+    return { error: null, ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err), ok: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// page copy
+// ---------------------------------------------------------------------------
+export type CopyFormState = { error: string | null; ok: boolean };
+
+/**
+ * Saving copy revalidates the public path it appears on, so an edit is live
+ * without a redeploy. The public pages are statically generated; revalidating
+ * the path re-renders that static output on the next request.
+ */
+export async function savePageCopyAction(
+  pageId: string,
+  values: Record<string, string>,
+): Promise<CopyFormState> {
+  await requireSession();
+  try {
+    const page = copyPage(pageId);
+    if (!page) return { error: `Unknown page: ${pageId}`, ok: false };
+
+    await repo.savePageCopy(pageId, values);
+
+    revalidatePath("/admin/content");
+    revalidatePath(`/admin/content/${pageId}`);
+    // Only the one surface. Every field in the registry belongs to exactly one
+    // path, and the shared layout carries no editable copy — revalidating the
+    // root layout here would rebuild all ~180 static pages for a heading.
+    revalidatePath(page.path);
     return { error: null, ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err), ok: false };

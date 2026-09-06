@@ -3,14 +3,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { PATREON_URL } from "@/lib/links";
 import { SocialIcon } from "@/components/site/social-icon";
+import { getCopy } from "@/lib/content/get-copy";
 
-export const metadata: Metadata = {
-  title: "About",
-  description:
-    "Coach Hayes is a 20-year high school football coach providing X's and O's analysis from a coach's perspective. Based in Calhoun, Georgia.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = await getCopy();
+  return { title: "About", description: copy["about.meta.description"] };
+}
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const copy = await getCopy();
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6">
       <div className="flex flex-col items-center gap-8 text-center">
@@ -23,29 +24,16 @@ export default function AboutPage() {
         />
         <div className="space-y-4">
           <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-            About
+            {copy["about.eyebrow"]}
           </span>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Coach Hayes Hudl
+            {copy["about.title"]}
           </h1>
-          <p className="text-lg text-zinc-300">
-            Connecting fans to the fundamentals of football.
-          </p>
+          <p className="text-lg text-zinc-300">{copy["about.tagline"]}</p>
         </div>
         <div className="space-y-4 text-left text-base text-zinc-300">
-          <p>
-            Coach Hayes is a 20-year high school football coach based in
-            Calhoun, Georgia. He produces in-depth coaching analysis, player
-            breakdowns, and recruit evaluations from a coach’s perspective —
-            with an emphasis on UGA.
-          </p>
-          <p>
-            The channel covers offensive, defensive, and special-teams schemes
-            across college football, with weekly breakdowns drawn from real
-            installs and real game film. The deeper installs and play-by-play
-            film studies live on Patreon; everything else is on YouTube and the
-            podcast.
-          </p>
+          <p>{copy["about.body1"]}</p>
+          <p>{copy["about.body2"]}</p>
         </div>
         {/*
           The eight social icons that used to sit here are the same eight the
@@ -57,7 +45,7 @@ export default function AboutPage() {
             href="/film"
             className="rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
           >
-            Watch the breakdowns →
+            {copy["about.primaryCta"]}
           </Link>
           <a
             href={PATREON_URL}
@@ -66,7 +54,7 @@ export default function AboutPage() {
             className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-5 py-3 text-base font-semibold text-white transition-colors hover:border-brand-red"
           >
             <SocialIcon name="patreon" className="h-5 w-5" />
-            Support on Patreon
+            {copy["about.secondaryCta"]}
           </a>
         </div>
       </div>

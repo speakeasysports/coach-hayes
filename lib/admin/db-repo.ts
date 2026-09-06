@@ -19,6 +19,7 @@ import { getDb } from "@/lib/db/client";
 import {
   adminMeta,
   concepts,
+  pageContent,
   players,
   series,
   videoConcepts,
@@ -38,12 +39,14 @@ import { diffImport, type ExistingPlayer } from "@/lib/board/import";
 import { mintSlug } from "@/lib/db/slug";
 import { isValidPattern } from "@/lib/ingest/tagger";
 import { parseBoardCsv } from "@/lib/board/sheet";
+import { COPY_PAGES, copyPage, type CopyPage } from "@/lib/content/copy";
 import type {
   AdminRepository,
   ConceptDetail,
   ConceptListItem,
   AmbiguityChoice,
   ConceptId,
+  CopyPageState,
   ImportResult,
   ImportSource,
   PlayerDetail,
@@ -861,4 +864,96 @@ export const dbRepo: AdminRepository = {
     await writeMeta("sync", status);
     return status;
   },
+
+  // ---- page copy --------------------------------------------------------
+
+  async listPageCopy(): Promise<CopyPageState[]> {
+    const overrides = await readOverrides();
+    return (COPY_PAGES as readonly CopyPage[]).map((p) =>
+      shapeCopyPage(p, overrides),
+    );
+  },
+
+  async getPageCopy(pageId: string): Promise<CopyPageState | null> {
+    const page = copyPage(pageId);
+    if (!page) return null;
+    return shapeCopyPage(page, await readOverrides());
+  },
+
+  async savePageCopy(
+    pageId: string,
+    values: Record<string, string>,
+  ): Promise<void> {
+    const page = copyPage(pageId);
+    if (!page) throw new Error(`Unknown page: ${pageId}`);
+
+    // Only fields declared for THIS page are writable through it. Without the
+    // check a crafted post could set any key in the registry from any form.
+    const fields = new Map(page.fields.map((f) => [f.key, f]));
+    const now = nowIso();
+    const upserts: Array<{ key: string; value: string; updatedAt: string }> = [];
+    const deletes: string[] = [];
+
+    for (const [key, raw] of Object.entries(values)) {
+      const field = fields.get(key);
+      if (!field) continue;
+      const value = raw.trim();
+      // Blank, or the same as what ships in the code: both mean "default", and
+      // storing either would pin today's wording if the default is ever edited.
+      if (!value || value === field.fallback.trim()) deletes.push(key);
+      else upserts.push({ key, value, updatedAt: now });
+    }
+
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      if (deletes.length > 0) {
+        await tx.delete(pageContent).where(inArray(pageContent.key, deletes));
+      }
+      for (const row of upserts) {
+        await tx
+          .insert(pageContent)
+          .values(row)
+          .onConflictDoUpdate({
+            target: pageContent.key,
+            set: { value: row.value, updatedAt: row.updatedAt },
+          });
+      }
+    });
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Page copy helpers
+// ---------------------------------------------------------------------------
+
+type StoredCopy = Map<string, { value: string; updatedAt: string }>;
+
+async function readOverrides(): Promise<StoredCopy> {
+  const rows = await getDb().select().from(pageContent);
+  return new Map(
+    rows.map((r) => [r.key, { value: r.value, updatedAt: r.updatedAt }]),
+  );
+}
+
+function shapeCopyPage(page: CopyPage, stored: StoredCopy): CopyPageState {
+  const fields = page.fields.map((f) => {
+    const row = stored.get(f.key);
+    return {
+      key: f.key,
+      label: f.label,
+      kind: f.kind,
+      help: f.help,
+      maxLength: f.maxLength,
+      fallback: f.fallback,
+      value: row?.value ?? null,
+      updatedAt: row?.updatedAt ?? null,
+    };
+  });
+  return {
+    id: page.id,
+    label: page.label,
+    path: page.path,
+    fields,
+    customized: fields.filter((f) => f.value !== null).length,
+  };
+}

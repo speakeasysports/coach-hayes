@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLatestFilm } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
+import type { Copy } from "@/lib/content/copy";
 
 /**
  * The homepage's main content module. This used to render the channel's
@@ -9,7 +10,7 @@ import { getThumbnailUrl } from "@/lib/youtube";
  * that have a page here; the "everything on YouTube" link stays, one line
  * down, for people who want the raw feed.
  */
-export async function LatestVideos() {
+export async function LatestVideos({ copy }: { copy: Copy }) {
   const films = await getLatestFilm(6);
   if (films.length === 0) return null;
 
@@ -19,10 +20,10 @@ export async function LatestVideos() {
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
-              Latest
+              {copy["home.latest.eyebrow"]}
             </span>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-              New breakdowns
+              {copy["home.latest.heading"]}
             </h2>
           </div>
           <Link
