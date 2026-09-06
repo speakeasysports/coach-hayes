@@ -290,6 +290,43 @@ export type ConceptInput = {
 };
 
 // ---------------------------------------------------------------------------
+// Writing queue
+//
+// Concept explainers and player bios were editable long before this — on
+// /admin/concepts/[id] and /admin/player/[id] respectively — and not one of
+// the 39 concepts or 51 players had any text. The obstacle was never the
+// form. It was that filling them meant ninety separate page visits with no
+// way to see which were empty or which were worth doing first.
+//
+// So this is one screen, ranked by how much film sits behind each page, with
+// the video titles that carry it as the material to write from.
+// ---------------------------------------------------------------------------
+export type WritingKind = "concept" | "player";
+
+export type WritingItem = {
+  kind: WritingKind;
+  /** ConceptId or PlayerId, depending on kind. */
+  id: string;
+  label: string;
+  /** Family, or position and status — enough to know what is being described. */
+  context: string;
+  /** The live page this text appears on. */
+  publicHref: string;
+  /** The single-item admin form, for anything the queue cannot edit. */
+  adminHref: string;
+  /** Published videos behind the page. Ranks the queue. */
+  videoCount: number;
+  /** A few titles carrying it — what Coach writes from. */
+  examples: string[];
+  text: string | null;
+};
+
+export type WritingQueue = {
+  concepts: WritingItem[];
+  players: WritingItem[];
+};
+
+// ---------------------------------------------------------------------------
 // Patreon shelf
 //
 // Links to posts behind the paywall, entered by hand. Nothing here is fetched:
@@ -454,6 +491,18 @@ export interface AdminRepository {
 
   /** Refuses when any video still carries the concept. */
   deleteConcept(id: ConceptId): Promise<void>;
+
+  // ---- writing queue ----------------------------------------------------
+  /** Every concept and player with a page, written or not, ranked by film. */
+  getWritingQueue(): Promise<WritingQueue>;
+
+  /**
+   * Batch-save explainers and bios. Blank clears the field back to null, which
+   * is what the public pages treat as "no text" — same convention as page copy.
+   */
+  saveWriting(
+    items: Array<{ kind: WritingKind; id: string; text: string }>,
+  ): Promise<void>;
 
   // ---- patreon shelf ----------------------------------------------------
   listPatreonPosts(): Promise<PatreonPostListItem[]>;

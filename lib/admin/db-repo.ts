@@ -53,6 +53,9 @@ import type {
   PatreonPostId,
   PatreonPostInput,
   PatreonPostListItem,
+  WritingItem,
+  WritingKind,
+  WritingQueue,
   ImportResult,
   ImportSource,
   PlayerDetail,
@@ -887,6 +890,126 @@ export const dbRepo: AdminRepository = {
     return status;
   },
 
+  // ---- writing queue ----------------------------------------------------
+
+  async getWritingQueue(): Promise<WritingQueue> {
+    const db = getDb();
+
+    const [conceptRows, conceptTitles, playerRows, playerTitles] =
+      await Promise.all([
+        db
+          .select({
+            id: concepts.id,
+            label: concepts.label,
+            slug: concepts.slug,
+            family: concepts.family,
+            explainer: concepts.explainer,
+            videoCount: sql<number>`count(${videos.id})::int`,
+          })
+          .from(concepts)
+          .innerJoin(videoConcepts, eq(videoConcepts.conceptId, concepts.id))
+          .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+          .where(eq(videos.published, true))
+          .groupBy(concepts.id),
+        db
+          .select({
+            key: videoConcepts.conceptId,
+            title: videos.title,
+            headline: videos.headline,
+            views: videos.views,
+          })
+          .from(videoConcepts)
+          .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+          .where(eq(videos.published, true)),
+        db
+          .select({
+            id: players.id,
+            name: players.name,
+            slug: players.slug,
+            position: players.position,
+            status: players.status,
+            bio: players.bio,
+            videoCount: sql<number>`count(${videos.id})::int`,
+          })
+          .from(players)
+          .innerJoin(videoPlayers, eq(videoPlayers.playerId, players.id))
+          .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
+          .where(eq(videos.published, true))
+          .groupBy(players.id),
+        db
+          .select({
+            key: videoPlayers.playerId,
+            title: videos.title,
+            headline: videos.headline,
+            views: videos.views,
+          })
+          .from(videoPlayers)
+          .innerJoin(videos, eq(videos.id, videoPlayers.videoId))
+          .where(eq(videos.published, true)),
+      ]);
+
+    const conceptExamples = topTitles(conceptTitles);
+    const playerExamples = topTitles(playerTitles);
+
+    return {
+      concepts: conceptRows
+        .map(
+          (c): WritingItem => ({
+            kind: "concept",
+            id: String(cid(c.id)),
+            label: c.label,
+            context: c.family,
+            publicHref: `/playbook/${c.slug}`,
+            adminHref: `/admin/concepts/${c.id}`,
+            videoCount: c.videoCount,
+            examples: conceptExamples.get(c.id) ?? [],
+            text: c.explainer,
+          }),
+        )
+        .sort(byWritingPriority),
+      players: playerRows
+        .map(
+          (p): WritingItem => ({
+            kind: "player",
+            id: String(pid(p.id)),
+            label: p.name,
+            context: `${p.position} · ${p.status.replace(/-/g, " ")}`,
+            publicHref: `/players/${p.slug}`,
+            adminHref: `/admin/player/${p.id}`,
+            videoCount: p.videoCount,
+            examples: playerExamples.get(p.id) ?? [],
+            text: p.bio,
+          }),
+        )
+        .sort(byWritingPriority),
+    };
+  },
+
+  async saveWriting(
+    items: Array<{ kind: WritingKind; id: string; text: string }>,
+  ): Promise<void> {
+    if (items.length === 0) return;
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        // Blank means "no text", the same thing the public pages check for —
+        // storing "" would render an empty paragraph rather than no paragraph.
+        const text = item.text.trim() || null;
+        if (item.kind === "concept") {
+          await tx
+            .update(concepts)
+            .set({ explainer: text })
+            .where(eq(concepts.id, num(item.id)));
+        } else {
+          await tx
+            .update(players)
+            .set({ bio: text })
+            .where(eq(players.id, num(item.id)));
+        }
+      }
+    });
+  },
+
   // ---- patreon shelf ----------------------------------------------------
 
   async listPatreonPosts(): Promise<PatreonPostListItem[]> {
@@ -983,6 +1106,40 @@ export const dbRepo: AdminRepository = {
     });
   },
 };
+
+// ---------------------------------------------------------------------------
+// Writing queue helpers
+// ---------------------------------------------------------------------------
+
+/** Unwritten first, then most film — the order that spends Coach's time best. */
+function byWritingPriority(a: WritingItem, b: WritingItem): number {
+  const aEmpty = a.text == null ? 0 : 1;
+  const bEmpty = b.text == null ? 0 : 1;
+  return aEmpty - bEmpty || b.videoCount - a.videoCount || a.label.localeCompare(b.label);
+}
+
+/** Up to three most-watched titles per key, as writing material. */
+function topTitles(
+  rows: Array<{ key: number; title: string; headline: string | null; views: number }>,
+): Map<number, string[]> {
+  const byKey = new Map<number, typeof rows>();
+  for (const r of rows) {
+    const arr = byKey.get(r.key) ?? [];
+    arr.push(r);
+    byKey.set(r.key, arr);
+  }
+  const out = new Map<number, string[]>();
+  for (const [key, arr] of byKey) {
+    out.set(
+      key,
+      arr
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 3)
+        .map((r) => r.headline ?? r.title),
+    );
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Patreon shelf helpers

@@ -22,6 +22,7 @@ import type {
   TagUpdate,
   VideoEditorialFields,
   VideoId,
+  WritingKind,
 } from "@/lib/admin/contract";
 
 /** Pages that change when tagging changes. */
@@ -138,6 +139,42 @@ export async function deleteConceptAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err), ok: false };
   }
+}
+
+// ---------------------------------------------------------------------------
+// writing queue
+// ---------------------------------------------------------------------------
+export type WritingSaveState = { error: string | null; saved: number };
+
+export async function saveWritingAction(
+  items: Array<{ kind: WritingKind; id: string; text: string }>,
+): Promise<WritingSaveState> {
+  await requireSession();
+  try {
+    await repo.saveWriting(items);
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : String(err),
+      saved: 0,
+    };
+  }
+
+  revalidatePath("/admin/write");
+
+  // Only the surfaces actually touched. A route pattern plus type refreshes
+  // every matching page, which is what an explainer needs — but revalidating
+  // the root layout for a paragraph would rebuild all ~180 static pages.
+  const kinds = new Set(items.map((i) => i.kind));
+  if (kinds.has("concept")) {
+    revalidatePath("/playbook");
+    revalidatePath("/playbook/[concept]", "page");
+  }
+  if (kinds.has("player")) {
+    revalidatePath("/players");
+    revalidatePath("/players/[slug]", "page");
+  }
+
+  return { error: null, saved: items.length };
 }
 
 // ---------------------------------------------------------------------------
