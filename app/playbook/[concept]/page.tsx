@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getConceptPage, getConceptSlugs } from "@/lib/db/public";
 import { getThumbnailUrl, getWatchUrl } from "@/lib/youtube";
+import { filmCountLabel } from "@/lib/counts";
 
 type Props = { params: Promise<{ concept: string }> };
 
@@ -56,8 +57,7 @@ export default async function ConceptPage({ params }: Props) {
           {c.label}
         </h1>
         <p className="mt-3 text-zinc-400">
-          {c.films.length} full {c.films.length === 1 ? "breakdown" : "breakdowns"}
-          {c.clips.length > 0 && ` · ${c.clips.length} clips`}
+          {filmCountLabel(c.films.length, c.clips.length)}
         </p>
         {c.explainer && (
           <p className="mt-5 max-w-2xl text-pretty text-zinc-300">{c.explainer}</p>
@@ -133,7 +133,7 @@ export default async function ConceptPage({ params }: Props) {
       {c.players.length > 0 && (
         <section className="mt-12 border-t border-border pt-8">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-            Players in this film
+            Players featured
           </h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {c.players.map((p) => (

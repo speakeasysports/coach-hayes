@@ -3,6 +3,11 @@ import Link from "next/link";
 import { getPlayerIndex } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
 import { filmCountLabel } from "@/lib/counts";
+import {
+  SECTION_ANCHOR,
+  SectionNav,
+  sectionId,
+} from "@/components/site/section-nav";
 import { POSITIONS, POSITION_GROUPS, type Position } from "@/lib/schema";
 
 export const metadata: Metadata = {
@@ -54,12 +59,22 @@ export default async function PlayersIndexPage() {
         </p>
       </header>
 
+      <SectionNav
+        sections={POSITIONS.filter((pos) => byPosition.get(pos)?.length).map(
+          (pos) => ({
+            id: sectionId(pos),
+            label: pos,
+            count: byPosition.get(pos)!.length,
+          }),
+        )}
+      />
+
       <div className="flex flex-col gap-12">
         {POSITIONS.map((pos) => {
           const rows = byPosition.get(pos);
           if (!rows?.length) return null;
           return (
-            <section key={pos}>
+            <section key={pos} id={sectionId(pos)} className={SECTION_ANCHOR}>
               <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
                 {POSITION_GROUPS.includes(pos as (typeof POSITION_GROUPS)[number]) ? (
                   <Link
@@ -75,7 +90,7 @@ export default async function PlayersIndexPage() {
                   {rows.length}
                 </span>
               </h2>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                 {rows.map((p) => (
                   <li key={p.slug}>
                     <Link

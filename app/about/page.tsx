@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { SOCIAL_LINKS } from "@/lib/links";
+import Link from "next/link";
+import { PATREON_URL } from "@/lib/links";
 import { SocialIcon } from "@/components/site/social-icon";
 
 export const metadata: Metadata = {
@@ -46,22 +47,28 @@ export default function AboutPage() {
             podcast.
           </p>
         </div>
-        <ul className="flex flex-wrap items-center justify-center gap-2 pt-2">
-          {SOCIAL_LINKS.map((s) => (
-            <li key={s.key}>
-              <a
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={s.label}
-                title={s.label}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border text-zinc-300 transition-colors hover:border-brand-red hover:text-white"
-              >
-                <SocialIcon name={s.key} />
-              </a>
-            </li>
-          ))}
-        </ul>
+        {/*
+          The eight social icons that used to sit here are the same eight the
+          footer renders about 160px below. One row is enough; this space goes
+          to the two things a reader of this page might actually want next.
+        */}
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            href="/film"
+            className="rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
+          >
+            Watch the breakdowns →
+          </Link>
+          <a
+            href={PATREON_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-5 py-3 text-base font-semibold text-white transition-colors hover:border-brand-red"
+          >
+            <SocialIcon name="patreon" className="h-5 w-5" />
+            Support on Patreon
+          </a>
+        </div>
       </div>
     </section>
   );

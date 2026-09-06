@@ -111,7 +111,7 @@ export default async function FilmPage({ params }: Props) {
 
       {film.players.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
             Players in this film
           </h2>
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -132,22 +132,25 @@ export default async function FilmPage({ params }: Props) {
 
       {(film.concepts.length > 0 || film.topics.length > 0) && (
         <section className="mt-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
             What it covers
           </h2>
           <ul className="mt-3 flex flex-wrap gap-1.5">
             {film.concepts.map((c) => (
-              <li
-                key={c.slug}
-                className="rounded border border-border bg-surface-2 px-2 py-0.5 text-xs text-zinc-200"
-              >
-                {c.label}
+              <li key={c.slug}>
+                <Link
+                  href={`/playbook/${c.slug}`}
+                  className="inline-block rounded border border-border bg-surface-2 px-2 py-0.5 text-xs text-zinc-200 transition-colors hover:border-brand-red hover:text-white"
+                >
+                  {c.label}
+                </Link>
               </li>
             ))}
+            {/* Topics have no page of their own, so they stay plain text. */}
             {film.topics.map((t) => (
               <li
                 key={t}
-                className="rounded border border-border bg-surface-2 px-2 py-0.5 text-xs capitalize text-zinc-400"
+                className="rounded border border-dashed border-border px-2 py-0.5 text-xs capitalize text-zinc-500"
               >
                 {t.replace(/-/g, " ")}
               </li>
@@ -169,7 +172,7 @@ export default async function FilmPage({ params }: Props) {
 
       {film.keyMoments.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
             Key moments
           </h2>
           <ul className="mt-3 flex flex-col gap-1.5">

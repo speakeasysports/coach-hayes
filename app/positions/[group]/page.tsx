@@ -41,6 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) return {};
   const name = FULL_NAME[g];
   const description = `Coach Hayes film on Georgia ${name.toLowerCase()} — ${page.players.length} players, ${page.films.length} breakdowns.`;
+
   return {
     title: `${name} — Georgia Film`,
     description,
@@ -75,6 +76,10 @@ export default async function PositionPage({ params }: Props) {
         <p className="mt-3 text-zinc-400">
           {page.players.length} {page.players.length === 1 ? "player" : "players"} ·{" "}
           {page.films.length} {page.films.length === 1 ? "breakdown" : "breakdowns"}
+          {page.roomFilms.length > 0 &&
+            ` · ${page.roomFilms.length} room video${
+              page.roomFilms.length === 1 ? "" : "s"
+            }`}
         </p>
       </header>
 
@@ -105,31 +110,64 @@ export default async function PositionPage({ params }: Props) {
       )}
 
       {page.films.length > 0 && (
-        <section className="mt-12">
-          <h2 className="text-2xl font-semibold tracking-tight">Film</h2>
-          <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {page.films.map((f) => (
-              <li key={f.slug}>
-                <Link
-                  href={`/film/${f.slug}`}
-                  className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
-                >
-                  <div className="relative aspect-video bg-black">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={getThumbnailUrl(f.youtubeId)}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
-                    />
-                  </div>
-                  <p className="p-3 text-sm font-medium text-white">{f.title}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <FilmGrid
+          heading="Film"
+          films={page.films}
+          count={page.films.length}
+        />
+      )}
+
+      {page.roomFilms.length > 0 && (
+        <FilmGrid
+          heading={`Around the ${name.toLowerCase().replace(/s$/, "")} room`}
+          blurb={`Coach Speak and room-level video that touches the ${g} group without breaking down a named player.`}
+          films={page.roomFilms}
+          count={page.roomFilms.length}
+        />
       )}
     </article>
+  );
+}
+
+function FilmGrid({
+  heading,
+  blurb,
+  films,
+  count,
+}: {
+  heading: string;
+  blurb?: string;
+  films: Array<{ slug: string; title: string; youtubeId: string }>;
+  count: number;
+}) {
+  return (
+    <section className="mt-12">
+      <h2 className="flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
+        {heading}
+        <span className="text-base font-normal text-muted">{count}</span>
+      </h2>
+      {blurb && <p className="mt-2 max-w-2xl text-sm text-zinc-400">{blurb}</p>}
+      <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {films.map((f) => (
+          <li key={f.slug}>
+            <Link
+              href={`/film/${f.slug}`}
+              className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
+            >
+              <div className="relative aspect-video bg-black">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getThumbnailUrl(f.youtubeId)}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                />
+              </div>
+              <p className="p-3 text-sm font-medium text-white">{f.title}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

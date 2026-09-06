@@ -65,6 +65,12 @@ export default async function PlayerPage({ params }: Props) {
   const longForm = videos.filter((v) => !v.isShort);
   const shorts = videos.filter((v) => v.isShort);
 
+  // Most players have one or two breakdowns. A fixed three-column grid left
+  // the single card floating against two empty columns, which read as a
+  // loading failure rather than a short filmography.
+  const filmCols =
+    longForm.length >= 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2";
+
   return (
     <article className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
       <Link
@@ -114,7 +120,7 @@ export default async function PlayerPage({ params }: Props) {
               {longForm.length}
             </span>
           </h2>
-          <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className={`mt-5 grid gap-5 ${filmCols}`}>
             {longForm.map((v) => (
               <li key={v.youtubeId}>
                 <VideoCard video={v} playerName={player.name} />
@@ -145,7 +151,7 @@ export default async function PlayerPage({ params }: Props) {
       {concepts.length > 0 && (
         <section className="mt-12 border-t border-border pt-8">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-            Concepts in this film
+            Concepts covered
           </h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {concepts.map((c) => (

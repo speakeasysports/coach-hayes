@@ -43,10 +43,20 @@ export function VideoEmbed({
       <img
         src={getThumbnailUrl(youtubeId, "maxres")}
         alt=""
-        className="h-full w-full object-cover transition-opacity group-hover:opacity-80"
+        className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+      />
+      {/*
+        Coach's thumbnails are busy by design — big type, red-on-black team
+        art — and an outlined translucent button disappeared into them. A
+        scrim plus a solid fill gives the control one consistent ground to sit
+        on whatever the still behind it looks like.
+      */}
+      <span
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/40"
       />
       <span className="absolute inset-0 flex items-center justify-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/80 bg-black/60 transition-colors group-hover:border-brand-red group-hover:bg-brand-red/80">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-red shadow-lg shadow-black/50 ring-2 ring-white/90 transition-transform group-hover:scale-110">
           <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7 fill-white" aria-hidden>
             <path d="M8 5v14l11-7z" />
           </svg>

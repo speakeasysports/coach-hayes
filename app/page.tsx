@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { PATREON_URL } from "@/lib/links";
+import { SocialIcon } from "@/components/site/social-icon";
 import { Suspense } from "react";
 import {
   LatestVideos,
@@ -14,7 +16,7 @@ export default function Home() {
         <LatestVideos />
       </Suspense>
       <FeatureCards />
-      <Newsletter />
+      <SupportCta />
     </>
   );
 }
@@ -26,7 +28,7 @@ function Hero() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(252,10,14,0.15),transparent_60%)]"
       />
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-10 px-4 py-20 text-center sm:px-6 md:flex-row md:gap-14 md:py-28 md:text-left">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-12 text-center sm:gap-10 sm:py-16 sm:px-6 md:flex-row md:gap-14 md:py-28 md:text-left">
         <div className="shrink-0">
           <Image
             src="/logo.png"
@@ -34,7 +36,7 @@ function Hero() {
             width={220}
             height={220}
             priority
-            className="h-44 w-44 rounded-lg object-contain md:h-56 md:w-56"
+            className="h-28 w-28 rounded-lg object-contain sm:h-40 sm:w-40 md:h-56 md:w-56"
           />
         </div>
         <div className="flex flex-col items-center gap-6 md:items-start">
@@ -156,40 +158,30 @@ function FeatureCards() {
   );
 }
 
-function Newsletter() {
+function SupportCta() {
   return (
     <section className="border-t border-border bg-surface">
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-14 text-center sm:px-6">
+        <span className="text-xs font-semibold uppercase tracking-wider text-brand-red">
+          Go deeper
+        </span>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Get the newsletter
+          The full install, on Patreon
         </h2>
-        <p className="max-w-lg text-sm text-zinc-400">
-          A short, weekly note when new breakdowns drop — plus occasional prize
-          drawings.
+        <p className="max-w-lg text-pretty text-sm leading-relaxed text-zinc-400">
+          Everything on this site stays free. The deeper installs and the
+          play-by-play film studies — the ones that take a whole evening to cut
+          — live on Patreon.
         </p>
-        <form
-          action="#"
-          className="flex w-full max-w-md flex-col gap-2 sm:flex-row"
-          aria-label="Newsletter signup (placeholder)"
+        <a
+          href={PATREON_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
         >
-          <input
-            type="email"
-            required
-            placeholder="you@example.com"
-            className="flex-1 rounded-md border border-border bg-black px-4 py-3 text-base text-white placeholder:text-zinc-500 focus:border-brand-red focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled
-            className="rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white opacity-60"
-            title="Coming soon"
-          >
-            Subscribe
-          </button>
-        </form>
-        <p className="text-xs text-zinc-500">
-          Signup wiring lands in Phase 5 — provider TBD.
-        </p>
+          <SocialIcon name="patreon" className="h-5 w-5" />
+          Support on Patreon
+        </a>
       </div>
     </section>
   );

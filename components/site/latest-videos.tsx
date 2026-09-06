@@ -1,9 +1,17 @@
-import { getLatestVideos } from "@/lib/youtube";
-import { YOUTUBE_CHANNEL_URL } from "@/lib/links";
+import Link from "next/link";
+import { getLatestFilm } from "@/lib/db/public";
+import { getThumbnailUrl } from "@/lib/youtube";
 
+/**
+ * The homepage's main content module. This used to render the channel's
+ * YouTube RSS feed, so the most prominent block on the site pushed every
+ * visitor straight back out to YouTube. It now shows the newest breakdowns
+ * that have a page here; the "everything on YouTube" link stays, one line
+ * down, for people who want the raw feed.
+ */
 export async function LatestVideos() {
-  const videos = await getLatestVideos(6);
-  if (videos.length === 0) return null;
+  const films = await getLatestFilm(6);
+  if (films.length === 0) return null;
 
   return (
     <section className="border-t border-border">
@@ -14,32 +22,28 @@ export async function LatestVideos() {
               Latest
             </span>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-              From the channel
+              New breakdowns
             </h2>
           </div>
-          <a
-            href={YOUTUBE_CHANNEL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/film"
             className="hidden text-sm font-semibold text-zinc-300 transition-colors hover:text-white sm:inline"
           >
-            View all on YouTube →
-          </a>
+            All film →
+          </Link>
         </div>
 
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((v) => (
-            <li key={v.id}>
-              <a
-                href={v.url}
-                target="_blank"
-                rel="noopener noreferrer"
+          {films.map((f) => (
+            <li key={f.slug}>
+              <Link
+                href={`/film/${f.slug}`}
                 className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface transition-colors hover:border-brand-red"
               >
                 <div className="relative aspect-video overflow-hidden bg-black">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={v.thumbnail}
+                    src={getThumbnailUrl(f.youtubeId)}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
@@ -47,33 +51,31 @@ export async function LatestVideos() {
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-4">
                   <h3 className="line-clamp-2 text-base font-semibold leading-snug">
-                    {v.title}
+                    {f.title}
                   </h3>
-                  <time
-                    dateTime={v.published}
-                    className="mt-auto text-xs text-zinc-400"
-                  >
-                    {new Date(v.published).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </time>
+                  <p className="mt-auto text-xs text-zinc-400">
+                    <time dateTime={f.publishedAt}>
+                      {new Date(f.publishedAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </time>
+                    {f.seriesName && ` · ${f.seriesName}`}
+                  </p>
                 </div>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
 
         <div className="mt-6 sm:hidden">
-          <a
-            href={YOUTUBE_CHANNEL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/film"
             className="text-sm font-semibold text-zinc-300 hover:text-white"
           >
-            View all on YouTube →
-          </a>
+            All film →
+          </Link>
         </div>
       </div>
     </section>

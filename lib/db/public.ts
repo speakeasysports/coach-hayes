@@ -332,6 +332,16 @@ export type FilmIndexEntry = {
   seriesName: string | null;
 };
 
+/**
+ * Newest breakdowns, for the homepage. The homepage used to show the YouTube
+ * RSS feed here, which meant its most prominent module advertised the channel
+ * and sent every click off-site — on a site whose whole point is ~180 pages of
+ * its own.
+ */
+export async function getLatestFilm(limit: number): Promise<FilmIndexEntry[]> {
+  return (await getFilmIndex()).slice(0, limit);
+}
+
 export async function getFilmIndex(): Promise<FilmIndexEntry[]> {
   const rows = await getDb()
     .select({
@@ -370,6 +380,7 @@ export type ConceptIndexEntry = {
   label: string;
   family: ConceptFamily;
   filmCount: number;
+  clipCount: number;
   thumbnailId: string | null;
 };
 
@@ -389,7 +400,8 @@ export async function getConceptIndex(): Promise<ConceptIndexEntry[]> {
       slug: concepts.slug,
       label: concepts.label,
       family: concepts.family,
-      filmCount: sql<number>`count(${videos.id})::int`,
+      filmCount: FILM_COUNT,
+      clipCount: CLIP_COUNT,
       thumbnailId: sql<string | null>`
         (select v2.youtube_id from videos v2
          join video_concepts vc2 on vc2.video_id = v2.id
@@ -402,7 +414,7 @@ export async function getConceptIndex(): Promise<ConceptIndexEntry[]> {
     .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
     .where(eq(videos.published, true))
     .groupBy(concepts.id)
-    .orderBy(desc(sql`count(${videos.id})`), concepts.label);
+    .orderBy(sql`${FILM_COUNT} desc`, sql`count(*) desc`, concepts.label);
   return rows;
 }
 
@@ -490,7 +502,15 @@ export type PositionPage = {
     filmCount: number;
     clipCount: number;
   }>;
+  /** Film with a named player at this position — actual position breakdowns. */
   films: Array<{ slug: string; title: string; youtubeId: string }>;
+  /**
+   * Film attached to the room by a position override rather than by a named
+   * player. These are room-level and opinion videos, and folding them into
+   * `films` is why /positions/qb opened on "Did Dabo Swinney Strike a Nerve?"
+   * under a heading promising quarterback film.
+   */
+  roomFilms: Array<{ slug: string; title: string; youtubeId: string }>;
 };
 
 export async function getPositionPage(
@@ -553,18 +573,24 @@ export async function getPositionPage(
       ),
   ]);
 
-  const seen = new Map<string, (typeof viaPlayers)[number]>();
-  for (const v of [...viaPlayers, ...viaOverride]) seen.set(v.slug, v);
-  const films = [...seen.values()]
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-    .map((v) => ({
-      slug: v.slug,
-      title: v.headline ?? v.title,
-      youtubeId: v.youtubeId,
-    }));
+  const shape = (rows: typeof viaPlayers) =>
+    [...new Map(rows.map((v) => [v.slug, v])).values()]
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+      .map((v) => ({
+        slug: v.slug,
+        title: v.headline ?? v.title,
+        youtubeId: v.youtubeId,
+      }));
 
-  if (playerRows.length === 0 && films.length === 0) return null;
-  return { group, players: playerRows, films };
+  const films = shape(viaPlayers);
+  // A video reached both ways belongs in the first group, not both.
+  const named = new Set(films.map((f) => f.slug));
+  const roomFilms = shape(viaOverride).filter((f) => !named.has(f.slug));
+
+  if (playerRows.length === 0 && films.length === 0 && roomFilms.length === 0) {
+    return null;
+  }
+  return { group, players: playerRows, films, roomFilms };
 }
 
 

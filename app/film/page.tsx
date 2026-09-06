@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getFilmIndex } from "@/lib/db/public";
+import {
+  SECTION_ANCHOR,
+  SectionNav,
+  sectionId,
+} from "@/components/site/section-nav";
 import { getThumbnailUrl } from "@/lib/youtube";
 
 export const metadata: Metadata = {
@@ -57,9 +62,17 @@ export default async function FilmIndexPage() {
         </p>
       </header>
 
+      <SectionNav
+        sections={groups.map(([name, rows]) => ({
+          id: sectionId(name),
+          label: name,
+          count: rows.length,
+        }))}
+      />
+
       <div className="flex flex-col gap-12">
         {groups.map(([name, rows]) => (
-          <section key={name}>
+          <section key={name} id={sectionId(name)} className={SECTION_ANCHOR}>
             <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
               <span>{name}</span>
               <span className="text-base font-normal text-muted">{rows.length}</span>

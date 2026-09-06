@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getConceptIndex } from "@/lib/db/public";
+import {
+  SECTION_ANCHOR,
+  SectionNav,
+  sectionId,
+} from "@/components/site/section-nav";
 import { getThumbnailUrl } from "@/lib/youtube";
+import { filmCountLabel } from "@/lib/counts";
 import { CONCEPT_FAMILIES } from "@/lib/schema";
 
 export const metadata: Metadata = {
@@ -43,40 +49,66 @@ export default async function PlaybookIndexPage() {
         </p>
       </header>
 
+      <SectionNav
+        sections={CONCEPT_FAMILIES.filter(
+          (family) => byFamily.get(family)?.length,
+        ).map((family) => ({
+          id: sectionId(family),
+          label: family,
+          count: byFamily.get(family)!.length,
+        }))}
+      />
+
       <div className="flex flex-col gap-12">
         {CONCEPT_FAMILIES.map((family) => {
           const rows = byFamily.get(family);
           if (!rows?.length) return null;
           return (
-            <section key={family}>
+            <section
+              key={family}
+              id={sectionId(family)}
+              className={SECTION_ANCHOR}
+            >
               <h2 className="mb-4 flex items-baseline gap-2 text-2xl font-semibold capitalize tracking-tight">
                 <span>{family}</span>
                 <span className="text-base font-normal text-muted">{rows.length}</span>
               </h2>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                 {rows.map((c) => (
                   <li key={c.slug}>
+                    {/*
+                      The concept name carries the card, not the still. A
+                      concept's thumbnail is just its most-viewed video's
+                      frame, so Zone Blocking, Zone Fits and Inside Zone all
+                      showed near-identical field shots and the grid was
+                      unreadable at a glance. The still is now texture behind
+                      the one thing that actually distinguishes these cards.
+                    */}
                     <Link
                       href={`/playbook/${c.slug}`}
-                      className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
+                      className="group relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-lg border border-border bg-surface p-4 transition-colors hover:border-brand-red sm:aspect-[16/10]"
                     >
-                      <div className="relative aspect-video bg-black">
-                        {c.thumbnailId && (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={getThumbnailUrl(c.thumbnailId)}
-                            alt=""
-                            loading="lazy"
-                            className="h-full w-full object-cover opacity-75 transition-opacity group-hover:opacity-100"
-                          />
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <p className="font-semibold text-white">{c.label}</p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          {c.filmCount} {c.filmCount === 1 ? "video" : "videos"}
-                        </p>
-                      </div>
+                      {c.thumbnailId && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={getThumbnailUrl(c.thumbnailId)}
+                          alt=""
+                          loading="lazy"
+                          className="absolute inset-0 h-full w-full object-cover opacity-40 transition-opacity duration-200 group-hover:opacity-60"
+                        />
+                      )}
+                      <span
+                        aria-hidden
+                        className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/20"
+                      />
+                      <span className="relative">
+                        <span className="block text-balance text-lg font-semibold leading-tight tracking-tight text-white sm:text-xl">
+                          {c.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-zinc-400">
+                          {filmCountLabel(c.filmCount, c.clipCount)}
+                        </span>
+                      </span>
                     </Link>
                   </li>
                 ))}

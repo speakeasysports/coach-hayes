@@ -416,6 +416,24 @@ async function main() {
     .select({ n: sql<number>`count(*)` })
     .from(players);
 
+  // ---- published videos that have vanished from YouTube --------------------
+  //
+  // A video that goes private or gets deleted stays in the database, keeps its
+  // /film page, and renders YouTube's grey "no thumbnail" placeholder on every
+  // index that lists it. That is exactly what happened to "Defensive Scheme
+  // Breakdown: Player Responsibilities".
+  //
+  // This reports rather than unpublishes on purpose: the catalog is a full
+  // channel fetch today, but if one ever comes back partial — an API page
+  // limit, a quota error mid-run — auto-unpublishing everything missing would
+  // silently empty the site. A short list a human acts on is the safer trade.
+  const catalogIds = new Set(catalog.map((v) => v.videoId));
+  const missing = await db
+    .select({ youtubeId: videos.youtubeId, title: videos.title })
+    .from(videos)
+    .where(eq(videos.published, true));
+  const vanished = missing.filter((v) => !catalogIds.has(v.youtubeId));
+
   console.log("\n──── ingest summary ────");
   console.log(
     `videos    ${stats.created} created · ${stats.updated} re-synced · ${stats.reviewedSkipped} human-owned (tags untouched)`,
@@ -430,6 +448,16 @@ async function main() {
   console.log(
     `players   ${linkedPlayers[0].n}/${totalPlayers[0].n} linked to ≥1 video (only these get pages)`,
   );
+  if (vanished.length > 0) {
+    console.log(
+      `\n⚠  ${vanished.length} published video${
+        vanished.length === 1 ? "" : "s"
+      } no longer in the channel catalog (private, deleted, or region-locked).`,
+    );
+    console.log("   Their pages are live and their thumbnails will 404.");
+    console.log("   Unpublish them in /admin/queue:");
+    for (const v of vanished) console.log(`     ${v.youtubeId}  ${v.title}`);
+  }
 
   await closeDb();
 }

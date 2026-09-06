@@ -121,8 +121,28 @@ function EmptyBoard() {
         The Big Board is being built
       </h1>
       <p className="max-w-xl text-pretty text-base text-zinc-400">
-        Coach is loading the first set of recruits. Check back soon.
+        Coach is loading the first set of recruits. In the meantime, the film
+        room is open.
       </p>
+      {/*
+        The board is linked from the nav and a homepage card, so this state is
+        reachable three ways. Sending people back to the content instead of
+        leaving them at a dead end.
+      */}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/players"
+          className="rounded-md bg-brand-red px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-red-hover"
+        >
+          Browse players →
+        </Link>
+        <Link
+          href="/film"
+          className="rounded-md border border-border bg-surface px-5 py-3 text-base font-semibold text-white transition-colors hover:border-brand-red"
+        >
+          All film
+        </Link>
+      </div>
     </section>
   );
 }
