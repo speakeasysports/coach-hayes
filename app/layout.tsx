@@ -21,12 +21,12 @@ export const metadata: Metadata = {
     template: "%s · Coach Hayes Hudl",
   },
   description:
-    "In-depth football coaching analysis, player breakdowns, and recruit insights from a coach's perspective. Emphasis on UGA.",
+    "X's & O's from a coach's perspective. Player breakdowns, recruit evaluations, and weekly college football film breakdowns.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "Coach Hayes Hudl",
     description:
-      "X's & O's from a coach's perspective. Emphasis on UGA.",
+      "X's & O's from a coach's perspective. Player breakdowns, recruit evaluations, and weekly college football film breakdowns.",
     siteName: "Coach Hayes Hudl",
     type: "website",
   },
