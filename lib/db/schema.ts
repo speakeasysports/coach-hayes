@@ -1,7 +1,7 @@
 /**
  * Drizzle schema — the persistence layer under the shared vocabulary in
  * lib/schema. That module owns the enums, derivation rules, and matching
- * contract; this one owns how they land in SQLite. Keep domain rules THERE.
+ * contract; this one owns how they land in Postgres. Keep domain rules THERE.
  *
  * The two rules from the Sanity evaluation, made structural:
  *
@@ -19,12 +19,15 @@
  * by the pipeline. Same ownership rule, applied to relationships.
  */
 import {
+  boolean,
   index,
   integer,
+  jsonb,
+  pgTable,
   primaryKey,
-  sqliteTable,
+  serial,
   text,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import type {
   ConceptFamily,
   PlayerStatus,
@@ -39,10 +42,10 @@ type KeyMoment = { atSec: number; label: string };
 // ---------------------------------------------------------------------------
 // Documents
 // ---------------------------------------------------------------------------
-export const players = sqliteTable(
+export const players = pgTable(
   "players",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     slug: text("slug").notNull().unique(),
 
     // synced from CFBD (see PLAYER_SYNCED_COLUMNS in sync.ts)
@@ -53,7 +56,7 @@ export const players = sqliteTable(
     weightLb: integer("weight_lb"),
     city: text("city"),
     state: text("state"),
-    rosterYears: text("roster_years", { mode: "json" })
+    rosterYears: jsonb("roster_years")
       .$type<number[]>()
       .notNull()
       .default([]),
@@ -61,7 +64,7 @@ export const players = sqliteTable(
     cfbdId: text("cfbd_id").unique(),
 
     // editorial
-    aliases: text("aliases", { mode: "json" })
+    aliases: jsonb("aliases")
       .$type<string[]>()
       .notNull()
       .default([]),
@@ -71,25 +74,25 @@ export const players = sqliteTable(
     status: text("status").$type<PlayerStatus>().notNull(),
     committedTo: text("committed_to"),
     bio: text("bio"),
-    onBigBoard: integer("on_big_board", { mode: "boolean" })
+    onBigBoard: boolean("on_big_board")
       .notNull()
       .default(false),
   },
   (t) => [index("players_position_idx").on(t.position)],
 );
 
-export const series = sqliteTable("series", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const series = pgTable("series", {
+  id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
   /** Substring match against title for auto-assignment during ingest. */
   titlePattern: text("title_pattern"),
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  active: boolean("active").notNull().default(true),
 });
 
-export const concepts = sqliteTable("concepts", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const concepts = pgTable("concepts", {
+  id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   label: text("label").notNull(),
   family: text("family").$type<ConceptFamily>().notNull(),
@@ -98,23 +101,23 @@ export const concepts = sqliteTable("concepts", {
    * lib/ingest/lexicon.ts; the DB copy is what the tagger actually runs, so
    * patterns can be tuned without a deploy.
    */
-  matchPatterns: text("match_patterns", { mode: "json" })
+  matchPatterns: jsonb("match_patterns")
     .$type<string[]>()
     .notNull()
     .default([]),
 
   // editorial
   explainer: text("explainer"),
-  relatedConcepts: text("related_concepts", { mode: "json" })
+  relatedConcepts: jsonb("related_concepts")
     .$type<string[]>()
     .notNull()
     .default([]),
 });
 
-export const videos = sqliteTable(
+export const videos = pgTable(
   "videos",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     /** Upsert lookup key, stored as ordinary content — not row identity. */
     youtubeId: text("youtube_id").notNull().unique(),
     slug: text("slug").notNull().unique(),
@@ -129,7 +132,7 @@ export const videos = sqliteTable(
     // editorial
     headline: text("headline"),
     analysis: text("analysis"),
-    keyMoments: text("key_moments", { mode: "json" })
+    keyMoments: jsonb("key_moments")
       .$type<KeyMoment[]>()
       .notNull()
       .default([]),
@@ -139,12 +142,12 @@ export const videos = sqliteTable(
     }),
 
     // provenance for the review queue
-    autoTagged: integer("auto_tagged", { mode: "boolean" })
+    autoTagged: boolean("auto_tagged")
       .notNull()
       .default(false),
     tagConfidence: integer("tag_confidence").notNull().default(0),
     reviewedAt: text("reviewed_at"), // ISO 8601; non-null = human-owned
-    published: integer("published", { mode: "boolean" })
+    published: boolean("published")
       .notNull()
       .default(false),
   },
@@ -157,7 +160,7 @@ export const videos = sqliteTable(
 // ---------------------------------------------------------------------------
 // Tag links. Composite PKs; `source` marks pipeline vs human ownership.
 // ---------------------------------------------------------------------------
-export const videoPlayers = sqliteTable(
+export const videoPlayers = pgTable(
   "video_players",
   {
     videoId: integer("video_id")
@@ -176,7 +179,7 @@ export const videoPlayers = sqliteTable(
   ],
 );
 
-export const videoConcepts = sqliteTable(
+export const videoConcepts = pgTable(
   "video_concepts",
   {
     videoId: integer("video_id")
@@ -193,7 +196,7 @@ export const videoConcepts = sqliteTable(
   ],
 );
 
-export const videoTopics = sqliteTable(
+export const videoTopics = pgTable(
   "video_topics",
   {
     videoId: integer("video_id")
@@ -214,7 +217,7 @@ export const videoTopics = sqliteTable(
  * The full group set for a video is derived at query time from its players
  * plus these rows — see derivePositionGroups in lib/schema.
  */
-export const videoPositionOverrides = sqliteTable(
+export const videoPositionOverrides = pgTable(
   "video_position_overrides",
   {
     videoId: integer("video_id")
@@ -241,8 +244,8 @@ export type SeriesRow = typeof series.$inferSelect;
  * Deliberately a KV table rather than columns — these are singletons, and a
  * one-row settings table invites the "which row is live?" bug.
  */
-export const adminMeta = sqliteTable("admin_meta", {
+export const adminMeta = pgTable("admin_meta", {
   key: text("key").primaryKey(),
-  value: text("value", { mode: "json" }).notNull(),
+  value: jsonb("value").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

@@ -99,7 +99,7 @@ export async function getPlayerPage(slug: string): Promise<PlayerPage | null> {
           .select({
             slug: concepts.slug,
             label: concepts.label,
-            count: sql<number>`count(*)`,
+            count: sql<number>`count(*)::int`,
           })
           .from(videoConcepts)
           .innerJoin(concepts, eq(videoConcepts.conceptId, concepts.id))
@@ -156,11 +156,11 @@ export async function getPlayerIndex(): Promise<PlayerIndexEntry[]> {
       name: players.name,
       position: players.position,
       stars: players.stars,
-      videoCount: sql<number>`count(${videos.id})`,
+      videoCount: sql<number>`count(${videos.id})::int`,
       latestThumbnailId: sql<string>`
         (select v2.youtube_id from videos v2
          join video_players vp2 on vp2.video_id = v2.id
-         where vp2.player_id = ${players.id} and v2.published = 1
+         where vp2.player_id = ${players.id} and v2.published = true
          order by v2.published_at desc limit 1)
       `,
     })

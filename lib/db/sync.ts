@@ -10,7 +10,7 @@
  * first insert. A retitled YouTube video keeps its URL.
  */
 import { sql, type SQL } from "drizzle-orm";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { getTableColumns } from "drizzle-orm";
 import type { Db } from "./client";
 import { concepts, players, series, videos } from "./schema";
@@ -50,7 +50,7 @@ export const SERIES_SYNCED_COLUMNS = [
  * Columns the caller didn't provide are left out of the UPDATE too — an
  * absent optional field must not null out a value someone set editorially.
  */
-function excludedSet<T extends SQLiteTable>(
+function excludedSet<T extends PgTable>(
   table: T,
   cols: ReadonlyArray<string>,
   row: Record<string, unknown>,

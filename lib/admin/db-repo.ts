@@ -205,7 +205,7 @@ export const dbRepo: AdminRepository = {
   async getSyncStatus(): Promise<SyncStatus> {
     const stored = await readMeta<SyncStatus>("sync");
     if (stored) return stored;
-    const [{ n }] = await getDb().select({ n: sql<number>`count(*)` }).from(videos);
+    const [{ n }] = await getDb().select({ n: sql<number>`count(*)::int` }).from(videos);
     return {
       lastSyncAt: null,
       state: n > 0 ? "ok" : "never-run",
@@ -218,10 +218,10 @@ export const dbRepo: AdminRepository = {
   async getPublishedCounts(): Promise<PublishedCounts> {
     const db = getDb();
     const [[v], [p], [c], [t]] = await Promise.all([
-      db.select({ n: sql<number>`count(*)` }).from(videos).where(eq(videos.published, true)),
-      db.select({ n: sql<number>`count(distinct ${videoPlayers.playerId})` }).from(videoPlayers),
-      db.select({ n: sql<number>`count(*)` }).from(concepts),
-      db.select({ n: sql<number>`count(distinct ${videoTopics.topic})` }).from(videoTopics),
+      db.select({ n: sql<number>`count(*)::int` }).from(videos).where(eq(videos.published, true)),
+      db.select({ n: sql<number>`count(distinct ${videoPlayers.playerId})::int` }).from(videoPlayers),
+      db.select({ n: sql<number>`count(*)::int` }).from(concepts),
+      db.select({ n: sql<number>`count(distinct ${videoTopics.topic})::int` }).from(videoTopics),
     ]);
     return { videos: v.n, players: p.n, concepts: c.n, topics: t.n };
   },
@@ -485,7 +485,7 @@ export const dbRepo: AdminRepository = {
   async getPlayers(filter, opts): Promise<PlayerListItem[]> {
     const db = getDb();
     const counts = await db
-      .select({ playerId: videoPlayers.playerId, n: sql<number>`count(*)` })
+      .select({ playerId: videoPlayers.playerId, n: sql<number>`count(*)::int` })
       .from(videoPlayers)
       .groupBy(videoPlayers.playerId);
     const byPlayer = new Map(counts.map((c) => [c.playerId, c.n]));
@@ -540,7 +540,7 @@ export const dbRepo: AdminRepository = {
     const [p] = await db.select().from(players).where(eq(players.id, playerId));
     if (!p) return null;
     const [{ n }] = await db
-      .select({ n: sql<number>`count(*)` })
+      .select({ n: sql<number>`count(*)::int` })
       .from(videoPlayers)
       .where(eq(videoPlayers.playerId, playerId));
 
@@ -742,7 +742,7 @@ export const dbRepo: AdminRepository = {
     // The pipeline itself runs out-of-process (scripts/ingest.ts, and the
     // scheduled job). This records intent and reports current state rather
     // than shelling out from a request handler.
-    const [{ n }] = await getDb().select({ n: sql<number>`count(*)` }).from(videos);
+    const [{ n }] = await getDb().select({ n: sql<number>`count(*)::int` }).from(videos);
     const status: SyncStatus = {
       lastSyncAt: nowIso(),
       state: "ok",

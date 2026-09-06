@@ -47,7 +47,7 @@ const REVIEW_QUEUE_WHERE = and(
 export async function getReviewQueueCount(): Promise<number> {
   const db = getDb();
   const [row] = await db
-    .select({ n: sql<number>`count(*)` })
+    .select({ n: sql<number>`count(*)::int` })
     .from(videos)
     .where(REVIEW_QUEUE_WHERE);
   return row.n;

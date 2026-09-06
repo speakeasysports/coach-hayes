@@ -26,7 +26,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { migrate } from "drizzle-orm/libsql/migrator";
+import { migrate } from "drizzle-orm/neon-serverless/migrator";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { closeDb, getDb, type Db } from "../lib/db/client";
@@ -431,7 +431,7 @@ async function main() {
     `players   ${linkedPlayers[0].n}/${totalPlayers[0].n} linked to ≥1 video (only these get pages)`,
   );
 
-  closeDb();
+  await closeDb();
 }
 
 main().catch((e) => {

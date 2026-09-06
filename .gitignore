@@ -52,5 +52,3 @@ next-env.d.ts
 /concept-extraction.json
 /roster-cfbd.json
 
-# local database
-/.data/
