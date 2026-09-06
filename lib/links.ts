@@ -5,6 +5,7 @@ export const YOUTUBE_CHANNEL_ID = "UCsdXFbhSfRlIl1rd9735HWw";
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/players", label: "Players" },
+  { href: "/film", label: "Film" },
   { href: "/big-board", label: "Big Board" },
   { href: "/playbook", label: "Playbook" },
   { href: "/about", label: "About" },
