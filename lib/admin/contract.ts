@@ -246,6 +246,42 @@ export type PublishedCounts = {
 };
 
 // ---------------------------------------------------------------------------
+// Concepts
+//
+// The only content type the admin can CREATE. Concepts drive /playbook pages
+// and, through matchPatterns, the auto-tagger itself — so editing one changes
+// how future videos get tagged, with no deploy.
+// ---------------------------------------------------------------------------
+export type ConceptListItem = {
+  id: ConceptId;
+  slug: string;
+  label: string;
+  family: ConceptFamily;
+  /** Published videos carrying this concept. Drives whether it has a page. */
+  filmCount: number;
+  patternCount: number;
+  hasExplainer: boolean;
+};
+
+export type ConceptDetail = {
+  id: ConceptId;
+  /** Frozen after creation — it is the /playbook URL. */
+  slug: string;
+  label: string;
+  family: ConceptFamily;
+  matchPatterns: string[];
+  explainer: string | null;
+  filmCount: number;
+};
+
+export type ConceptInput = {
+  label: string;
+  family: ConceptFamily;
+  matchPatterns: string[];
+  explainer: string | null;
+};
+
+// ---------------------------------------------------------------------------
 // Sheet import
 //
 // The sheet is an INPUT, not a live dependency. Coach drafts the board in
@@ -334,6 +370,23 @@ export interface AdminRepository {
   searchPlayers(query: string, limit?: number): Promise<PlayerOption[]>;
   searchConcepts(query: string, limit?: number): Promise<ConceptOption[]>;
   listSeries(): Promise<SeriesOption[]>;
+
+  // ---- concepts ---------------------------------------------------------
+  listConcepts(): Promise<ConceptListItem[]>;
+  getConcept(id: ConceptId): Promise<ConceptDetail | null>;
+
+  /** Mints a unique slug from the label. Returns the new concept's id. */
+  createConcept(input: ConceptInput): Promise<ConceptId>;
+
+  /**
+   * Updates label, family, patterns and explainer. The slug is NOT updatable —
+   * it is the published URL, and renaming a concept must not break a link.
+   * Rejects a pattern that does not compile as a regex.
+   */
+  updateConcept(id: ConceptId, input: ConceptInput): Promise<void>;
+
+  /** Refuses when any video still carries the concept. */
+  deleteConcept(id: ConceptId): Promise<void>;
 
   // ---- sheet import -----------------------------------------------------
   getImportSource(): Promise<ImportSource>;

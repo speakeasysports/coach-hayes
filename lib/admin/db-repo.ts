@@ -36,9 +36,12 @@ import {
 } from "@/lib/schema";
 import { diffImport, type ExistingPlayer } from "@/lib/board/import";
 import { mintSlug } from "@/lib/db/slug";
+import { isValidPattern } from "@/lib/ingest/tagger";
 import { parseBoardCsv } from "@/lib/board/sheet";
 import type {
   AdminRepository,
+  ConceptDetail,
+  ConceptListItem,
   AmbiguityChoice,
   ConceptId,
   ImportResult,
@@ -65,6 +68,20 @@ const sid = (n: number) => String(n) as SeriesId;
 const num = (id: string) => Number(id);
 
 const nowIso = () => new Date().toISOString();
+
+/**
+ * Concept patterns are compiled by the tagger with `new RegExp(s, "i")`.
+ * Rejecting a bad one here is what keeps a typo in the admin from costing a
+ * concept its auto-tagging on the next ingest.
+ */
+function assertPatternsValid(patterns: string[]): void {
+  const bad = patterns.filter((p) => !isValidPattern(p));
+  if (bad.length > 0) {
+    throw new Error(
+      `Not a valid pattern: ${bad.join(", ")}. Check for an unclosed bracket or parenthesis.`,
+    );
+  }
+}
 
 /** In review = auto-tagged, unpublished, not yet signed off by a human. */
 const IN_REVIEW = and(
@@ -617,6 +634,101 @@ export const dbRepo: AdminRepository = {
   async listSeries() {
     const rows = await getDb().select({ id: series.id, name: series.name }).from(series);
     return rows.map((r) => ({ id: sid(r.id), name: r.name }));
+  },
+
+  // ---- concepts ---------------------------------------------------------
+  async listConcepts(): Promise<ConceptListItem[]> {
+    const db = getDb();
+    const counts = await db
+      .select({
+        conceptId: videoConcepts.conceptId,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(videoConcepts)
+      .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+      .where(eq(videos.published, true))
+      .groupBy(videoConcepts.conceptId);
+    const byConcept = new Map(counts.map((c) => [c.conceptId, c.n]));
+
+    const rows = await db.select().from(concepts).orderBy(concepts.label);
+    return rows.map((c) => ({
+      id: cid(c.id),
+      slug: c.slug,
+      label: c.label,
+      family: c.family,
+      filmCount: byConcept.get(c.id) ?? 0,
+      patternCount: ((c.matchPatterns as string[]) ?? []).length,
+      hasExplainer: Boolean(c.explainer),
+    }));
+  },
+
+  async getConcept(id): Promise<ConceptDetail | null> {
+    const db = getDb();
+    const [c] = await db.select().from(concepts).where(eq(concepts.id, num(id)));
+    if (!c) return null;
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(videoConcepts)
+      .innerJoin(videos, eq(videos.id, videoConcepts.videoId))
+      .where(and(eq(videoConcepts.conceptId, c.id), eq(videos.published, true)));
+    return {
+      id: cid(c.id),
+      slug: c.slug,
+      label: c.label,
+      family: c.family,
+      matchPatterns: (c.matchPatterns as string[]) ?? [],
+      explainer: c.explainer,
+      filmCount: n,
+    };
+  },
+
+  async createConcept(input): Promise<ConceptId> {
+    assertPatternsValid(input.matchPatterns);
+    const db = getDb();
+    const taken = new Set(
+      (await db.select({ slug: concepts.slug }).from(concepts)).map((r) => r.slug),
+    );
+    const slug = mintSlug(input.label, `concept-${Date.now()}`, taken);
+    const [row] = await db
+      .insert(concepts)
+      .values({
+        slug,
+        label: input.label.trim(),
+        family: input.family,
+        matchPatterns: input.matchPatterns,
+        explainer: input.explainer,
+        relatedConcepts: [],
+      })
+      .returning({ id: concepts.id });
+    return cid(row.id);
+  },
+
+  async updateConcept(id, input) {
+    assertPatternsValid(input.matchPatterns);
+    // Slug deliberately absent: it is the published /playbook URL.
+    await getDb()
+      .update(concepts)
+      .set({
+        label: input.label.trim(),
+        family: input.family,
+        matchPatterns: input.matchPatterns,
+        explainer: input.explainer,
+      })
+      .where(eq(concepts.id, num(id)));
+  },
+
+  async deleteConcept(id) {
+    const db = getDb();
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(videoConcepts)
+      .where(eq(videoConcepts.conceptId, num(id)));
+    if (n > 0) {
+      throw new Error(
+        `Still used by ${n} video${n === 1 ? "" : "s"}. Remove the tag from those videos first.`,
+      );
+    }
+    await db.delete(concepts).where(eq(concepts.id, num(id)));
   },
 
   // ---- sheet import -----------------------------------------------------

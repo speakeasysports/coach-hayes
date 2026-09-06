@@ -37,8 +37,34 @@ export type ConceptPatternRow = {
 
 type Compiled = { rx: RegExp[] };
 
+/**
+ * True when `source` compiles as a regular expression.
+ *
+ * Concept patterns are editable from the admin, so this is the gate between a
+ * typo and a crashed ingest. Exported so the admin validates with exactly the
+ * same rule the tagger applies.
+ */
+export function isValidPattern(source: string): boolean {
+  try {
+    new RegExp(source, "i");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function compile(sources: string[]): Compiled {
-  return { rx: sources.map((s) => new RegExp(s, "i")) };
+  const rx: RegExp[] = [];
+  for (const s of sources) {
+    // Skip rather than throw. A single bad pattern should cost one concept
+    // its auto-tagging, not abort a 455-video ingest.
+    if (!isValidPattern(s)) {
+      console.warn(`  ! skipping invalid concept pattern: ${s}`);
+      continue;
+    }
+    rx.push(new RegExp(s, "i"));
+  }
+  return { rx };
 }
 
 function hits(c: Compiled, v: TagInput): boolean {

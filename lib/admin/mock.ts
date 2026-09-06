@@ -12,6 +12,8 @@
  */
 import type {
   AdminRepository,
+  ConceptDetail,
+  ConceptListItem,
   AmbiguityChoice,
   ConceptId,
   ConceptOption,
@@ -586,6 +588,53 @@ export const mockRepo: AdminRepository = {
 
   async listSeries() {
     return SERIES;
+  },
+
+  // ---- concepts ---------------------------------------------------------
+  async listConcepts(): Promise<ConceptListItem[]> {
+    return CONCEPTS.map((c) => ({
+      id: c.id,
+      slug: String(c.id),
+      label: c.label,
+      family: c.family,
+      filmCount: VIDEOS.filter((v) => v.conceptIds.includes(c.id)).length,
+      patternCount: 0,
+      hasExplainer: false,
+    }));
+  },
+
+  async getConcept(id): Promise<ConceptDetail | null> {
+    const c = conceptById(id);
+    if (!c) return null;
+    return {
+      id: c.id,
+      slug: String(c.id),
+      label: c.label,
+      family: c.family,
+      matchPatterns: [],
+      explainer: null,
+      filmCount: VIDEOS.filter((v) => v.conceptIds.includes(c.id)).length,
+    };
+  },
+
+  async createConcept(input): Promise<ConceptId> {
+    const id = cid(input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+    CONCEPTS.push({ id, label: input.label, family: input.family });
+    return id;
+  },
+
+  async updateConcept(id, input) {
+    const c = conceptById(id);
+    if (!c) throw new Error(`Concept not found: ${id}`);
+    c.label = input.label;
+    c.family = input.family;
+  },
+
+  async deleteConcept(id) {
+    const used = VIDEOS.filter((v) => v.conceptIds.includes(id)).length;
+    if (used > 0) throw new Error(`Still used by ${used} videos.`);
+    const i = CONCEPTS.findIndex((c) => c.id === id);
+    if (i >= 0) CONCEPTS.splice(i, 1);
   },
 
   // ---- sheet import -----------------------------------------------------

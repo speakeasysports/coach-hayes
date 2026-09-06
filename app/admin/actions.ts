@@ -12,6 +12,8 @@ import {
 import { requireSession } from "@/lib/admin/session";
 import { repo } from "@/lib/admin/repo";
 import type {
+  ConceptId,
+  ConceptInput,
   PlayerEditableFields,
   PlayerId,
   TagUpdate,
@@ -91,6 +93,48 @@ export async function syncNowAction() {
   await requireSession();
   await repo.triggerSync();
   revalidateAdmin();
+}
+
+// ---------------------------------------------------------------------------
+// concepts
+// ---------------------------------------------------------------------------
+function revalidateConcepts() {
+  revalidatePath("/admin/concepts");
+  revalidatePath("/playbook");
+}
+
+export type ConceptFormState = { error: string | null; ok: boolean };
+
+export async function saveConceptAction(
+  id: string | null,
+  input: ConceptInput,
+): Promise<ConceptFormState> {
+  await requireSession();
+  try {
+    if (id) {
+      await repo.updateConcept(id as ConceptId, input);
+      revalidatePath(`/admin/concepts/${id}`);
+    } else {
+      await repo.createConcept(input);
+    }
+    revalidateConcepts();
+    return { error: null, ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err), ok: false };
+  }
+}
+
+export async function deleteConceptAction(
+  id: string,
+): Promise<ConceptFormState> {
+  await requireSession();
+  try {
+    await repo.deleteConcept(id as ConceptId);
+    revalidateConcepts();
+    return { error: null, ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err), ok: false };
+  }
 }
 
 // ---------------------------------------------------------------------------
