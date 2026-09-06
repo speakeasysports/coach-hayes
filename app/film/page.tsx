@@ -82,7 +82,7 @@ export default async function FilmIndexPage() {
               <span>{name}</span>
               <span className="text-base font-normal text-muted">{rows.length}</span>
             </h2>
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
               {rows.map((f) => (
                 <li key={f.slug}>
                   <Link

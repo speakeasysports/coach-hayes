@@ -40,6 +40,11 @@ export default async function ConceptPage({ params }: Props) {
   const c = await getConceptPage(concept);
   if (!c) notFound();
 
+  // Same reason as the player pages: a lone card in a three-column grid reads
+  // as a loading failure rather than as a short filmography.
+  const filmCols =
+    c.films.length >= 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2";
+
   return (
     <article className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
       <Link
@@ -67,7 +72,7 @@ export default async function ConceptPage({ params }: Props) {
       {c.films.length > 0 && (
         <section className="mt-10">
           <h2 className="text-2xl font-semibold tracking-tight">On film</h2>
-          <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className={`mt-5 grid gap-5 ${filmCols}`}>
             {c.films.map((f) => (
               <li key={f.slug}>
                 <Link

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPositionPage } from "@/lib/db/public";
 import { getThumbnailUrl } from "@/lib/youtube";
-import { filmCountTitle } from "@/lib/counts";
+import { filmCountLabel, filmCountTitle } from "@/lib/counts";
+import { getWatchUrl } from "@/lib/youtube";
 import { POSITION_GROUPS, type PositionGroup } from "@/lib/schema";
 
 type Props = { params: Promise<{ group: string }> };
@@ -40,7 +41,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = await getPositionPage(g);
   if (!page) return {};
   const name = FULL_NAME[g];
-  const description = `Coach Hayes film on Georgia ${name.toLowerCase()} — ${page.players.length} players, ${page.films.length} breakdowns.`;
+  const description = `Coach Hayes film on Georgia ${name.toLowerCase()} — ${
+    page.players.length
+  } players, ${filmCountLabel(page.films.length, page.clips.length)}.`;
 
   return {
     title: `${name} — Georgia Film`,
@@ -58,6 +61,7 @@ export default async function PositionPage({ params }: Props) {
   if (!page) notFound();
 
   const name = FULL_NAME[g];
+  const counts = filmCountLabel(page.films.length, page.clips.length);
 
   return (
     <article className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
@@ -74,12 +78,8 @@ export default async function PositionPage({ params }: Props) {
         </span>
         <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">{name}</h1>
         <p className="mt-3 text-zinc-400">
-          {page.players.length} {page.players.length === 1 ? "player" : "players"} ·{" "}
-          {page.films.length} {page.films.length === 1 ? "breakdown" : "breakdowns"}
-          {page.roomFilms.length > 0 &&
-            ` · ${page.roomFilms.length} room video${
-              page.roomFilms.length === 1 ? "" : "s"
-            }`}
+          {page.players.length} {page.players.length === 1 ? "player" : "players"}
+          {counts && ` · ${counts}`}
         </p>
       </header>
 
@@ -94,14 +94,12 @@ export default async function PositionPage({ params }: Props) {
                   className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-white transition-colors hover:border-brand-red"
                 >
                   {p.name}
-                  {p.filmCount > 0 && (
-                    <span
-                      className="text-xs text-muted"
-                      title={filmCountTitle(p.filmCount, p.clipCount)}
-                    >
-                      {p.filmCount}
-                    </span>
-                  )}
+                  <span
+                    className="text-xs text-muted"
+                    title={filmCountTitle(p.filmCount, p.clipCount)}
+                  >
+                    {p.filmCount + p.clipCount}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -115,6 +113,40 @@ export default async function PositionPage({ params }: Props) {
           films={page.films}
           count={page.films.length}
         />
+      )}
+
+      {page.clips.length > 0 && (
+        <section className="mt-12">
+          <h2 className="flex items-baseline gap-2 text-2xl font-semibold tracking-tight">
+            Clips
+            <span className="text-base font-normal text-muted">
+              {page.clips.length}
+            </span>
+          </h2>
+          <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {page.clips.map((c) => (
+              <li key={c.youtubeId}>
+                <a
+                  href={getWatchUrl(c.youtubeId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-brand-red"
+                >
+                  <div className="relative aspect-video bg-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getThumbnailUrl(c.youtubeId)}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                    />
+                  </div>
+                  <p className="p-3 text-xs font-medium text-white">{c.title}</p>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {page.roomFilms.length > 0 && (

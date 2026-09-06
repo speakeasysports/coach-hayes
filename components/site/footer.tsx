@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SOCIAL_LINKS } from "@/lib/links";
 import { SocialIcon } from "./social-icon";
 
@@ -7,9 +8,17 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-black">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-10 text-center sm:px-6 md:flex-row md:justify-between md:text-left">
-        <p className="text-sm text-muted">
-          © {year} Coach Hayes Hudl. All rights reserved.
-        </p>
+        <div className="flex flex-col items-center gap-2 md:items-start">
+          <p className="text-sm text-muted">
+            © {year} Coach Hayes Hudl. All rights reserved.
+          </p>
+          <Link
+            href="/patreon"
+            className="text-sm text-zinc-400 transition-colors hover:text-white"
+          >
+            The full studies on Patreon →
+          </Link>
+        </div>
 
         <ul className="flex flex-wrap items-center justify-center gap-2">
           {SOCIAL_LINKS.map((s) => (

@@ -3,7 +3,7 @@
  * everything here filters to PUBLISHED content, so an unreviewed or archived
  * video can never leak onto the public site through a shared helper.
  */
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lte, ne, sql } from "drizzle-orm";
 import { getDb } from "./client";
 import { getThumbnailUrl } from "@/lib/youtube";
 import {
@@ -215,6 +215,7 @@ export async function getPlayerIndex(): Promise<PlayerIndexEntry[]> {
 // onto player and concept hubs instead (see hasFilmPage in lib/schema).
 // ---------------------------------------------------------------------------
 const LONG_FORM = gt(videos.durationSec, SHORT_MAX_SECONDS);
+const SHORT_FORM = lte(videos.durationSec, SHORT_MAX_SECONDS);
 
 export type FilmPlayer = { slug: string; name: string; position: Position };
 
@@ -577,6 +578,13 @@ export type PositionPage = {
    * under a heading promising quarterback film.
    */
   roomFilms: Array<{ slug: string; title: string; youtubeId: string }>;
+  /**
+   * Shorts featuring a player in this room. Most rooms are mostly clips — OL
+   * and DL have no long-form film at all — so a hub that showed only
+   * breakdowns announced "0 breakdowns" while sitting on fourteen videos.
+   * Shorts have no page of their own, hence no slug: these link to YouTube.
+   */
+  clips: Array<{ youtubeId: string; title: string; publishedAt: string }>;
 };
 
 export async function getPositionPage(
@@ -598,7 +606,7 @@ export async function getPositionPage(
     .groupBy(players.id)
     .orderBy(sql`${FILM_COUNT} desc`, sql`count(*) desc`, players.name);
 
-  const [viaPlayers, viaOverride] = await Promise.all([
+  const [viaPlayers, viaOverride, viaClips] = await Promise.all([
     db
       .selectDistinct({
         slug: videos.slug,
@@ -637,6 +645,24 @@ export async function getPositionPage(
           gt(videos.durationSec, SHORT_MAX_SECONDS),
         ),
       ),
+    db
+      .selectDistinct({
+        slug: videos.slug,
+        title: videos.title,
+        headline: videos.headline,
+        youtubeId: videos.youtubeId,
+        publishedAt: videos.publishedAt,
+      })
+      .from(videos)
+      .innerJoin(videoPlayers, eq(videoPlayers.videoId, videos.id))
+      .innerJoin(players, eq(videoPlayers.playerId, players.id))
+      .where(
+        and(
+          eq(players.position, group),
+          eq(videos.published, true),
+          SHORT_FORM,
+        ),
+      ),
   ]);
 
   const shape = (rows: typeof viaPlayers) =>
@@ -653,10 +679,23 @@ export async function getPositionPage(
   const named = new Set(films.map((f) => f.slug));
   const roomFilms = shape(viaOverride).filter((f) => !named.has(f.slug));
 
-  if (playerRows.length === 0 && films.length === 0 && roomFilms.length === 0) {
+  const clips = [...new Map(viaClips.map((v) => [v.youtubeId, v])).values()]
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .map((v) => ({
+      youtubeId: v.youtubeId,
+      title: v.headline ?? v.title,
+      publishedAt: v.publishedAt,
+    }));
+
+  if (
+    playerRows.length === 0 &&
+    films.length === 0 &&
+    roomFilms.length === 0 &&
+    clips.length === 0
+  ) {
     return null;
   }
-  return { group, players: playerRows, films, roomFilms };
+  return { group, players: playerRows, films, roomFilms, clips };
 }
 
 
