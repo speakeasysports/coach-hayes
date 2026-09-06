@@ -9,13 +9,19 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   await requireSession();
 
-  const [counts, sync, published] = await Promise.all([
+  const [counts, sync, published, writing, shelf] = await Promise.all([
     repo.getQueueCounts(),
     repo.getSyncStatus(),
     repo.getPublishedCounts(),
+    repo.getWritingQueue(),
+    repo.listPatreonPosts(),
   ]);
 
   const needsAttention = counts["needs-tags"] + counts.ambiguous;
+  const unwritten =
+    writing.concepts.filter((c) => c.text == null).length +
+    writing.players.filter((p) => p.text == null).length;
+  const liveShelf = shelf.filter((p) => p.published).length;
 
   return (
     <section>
@@ -48,6 +54,38 @@ export default async function AdminDashboard() {
         </div>
       )}
 
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+          The rest of the job
+        </h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Job
+            href="/admin/write"
+            title="Descriptions"
+            body={
+              unwritten === 0
+                ? "Every player and concept has one."
+                : `${unwritten} still to write. Two or three sentences each.`
+            }
+            tone={unwritten > 0 ? "action" : "muted"}
+          />
+          <Job
+            href="/admin/patreon"
+            title="Patreon shelf"
+            body={
+              liveShelf === 0
+                ? "Nothing on the shelf yet."
+                : `${liveShelf} post${liveShelf === 1 ? "" : "s"} showing on the site.`
+            }
+          />
+          <Job
+            href="/admin/content"
+            title="Page text"
+            body="Headings and wording on the public pages."
+          />
+        </div>
+      </div>
+
       <div className="mt-8 grid gap-3 sm:grid-cols-4">
         <Stat label="Videos published" value={published.videosPublished} />
         <Stat label="Film pages" value={published.filmPages} />
@@ -64,6 +102,32 @@ export default async function AdminDashboard() {
         />
       </div>
     </section>
+  );
+}
+
+function Job({
+  href,
+  title,
+  body,
+  tone = "muted",
+}: {
+  href: string;
+  title: string;
+  body: string;
+  tone?: "action" | "muted";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg border p-4 transition-colors hover:border-brand-red ${
+        tone === "action"
+          ? "border-brand-red/50 bg-brand-red/5"
+          : "border-border bg-surface"
+      }`}
+    >
+      <span className="block font-semibold text-white">{title}</span>
+      <span className="mt-1 block text-sm text-zinc-400">{body}</span>
+    </Link>
   );
 }
 

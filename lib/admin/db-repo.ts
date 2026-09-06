@@ -55,6 +55,7 @@ import type {
   PatreonPostId,
   PatreonPostInput,
   PatreonPostListItem,
+  PatternPreview,
   VideoListFilter,
   VideoListItem,
   WritingItem,
@@ -1001,6 +1002,30 @@ export const dbRepo: AdminRepository = {
     };
     await writeMeta("sync", status);
     return status;
+  },
+
+  async previewConceptMatches(patterns: string[]): Promise<PatternPreview> {
+    const cleaned = patterns.map((p) => p.trim()).filter(Boolean);
+    if (cleaned.length === 0) return { error: null, total: 0, samples: [] };
+
+    const bad = cleaned.find((p) => !isValidPattern(p));
+    if (bad) {
+      return {
+        error: `This one is not a valid pattern: ${bad}`,
+        total: 0,
+        samples: [],
+      };
+    }
+
+    // Same flags the tagger uses, so the preview and the real run agree.
+    const rx = cleaned.map((p) => new RegExp(p, "i"));
+    const rows = await getDb()
+      .select({ title: videos.title })
+      .from(videos)
+      .where(eq(videos.published, true));
+
+    const hits = rows.map((r) => r.title).filter((t) => rx.some((r) => r.test(t)));
+    return { error: null, total: hits.length, samples: hits.slice(0, 5) };
   },
 
   // ---- writing queue ----------------------------------------------------

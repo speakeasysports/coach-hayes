@@ -324,6 +324,23 @@ export type ConceptDetail = {
   filmCount: number;
 };
 
+/**
+ * What a set of match patterns would actually tag.
+ *
+ * Every pattern in the catalogue is hand-written regex — word boundaries,
+ * non-capturing groups, bounded wildcards. Validation only proves a pattern
+ * compiles, not that it matches what Coach meant, and a pattern that silently
+ * matches nothing (or everything) is invisible until the next ingest. This
+ * turns the field into something checkable before saving.
+ */
+export type PatternPreview = {
+  /** Set when a pattern does not compile; nothing else is populated. */
+  error: string | null;
+  /** Published video titles the patterns match. */
+  total: number;
+  samples: string[];
+};
+
 export type ConceptInput = {
   label: string;
   family: ConceptFamily;
@@ -546,6 +563,12 @@ export interface AdminRepository {
 
   /** Refuses when any video still carries the concept. */
   deleteConcept(id: ConceptId): Promise<void>;
+
+  /**
+   * Dry-run a set of match patterns against published video titles. Read-only;
+   * changes nothing and does not need the concept to exist yet.
+   */
+  previewConceptMatches(patterns: string[]): Promise<PatternPreview>;
 
   // ---- writing queue ----------------------------------------------------
   /** Every concept and player with a page, written or not, ranked by film. */

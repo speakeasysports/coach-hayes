@@ -23,9 +23,18 @@ export default async function PlayersPage({
   return (
     <section>
       <h1 className="text-3xl font-bold tracking-tight">Players</h1>
-      <p className="mt-2 text-sm text-muted">
-        Seeded from the CFBD roster, plus Big Board recruits imported from
-        Sheets. A player page needs film behind it; a board slot does not.
+      <p className="mt-2 max-w-2xl text-sm text-muted">
+        Seeded from the Georgia roster, plus{" "}
+        <Link href="/admin/import" className="underline hover:text-white">
+          Big Board
+        </Link>{" "}
+        recruits imported from Sheets. A player page needs film behind it; a
+        board slot does not — which is why the two lists hold different people.
+      </p>
+      <p className="mt-1 max-w-2xl text-sm text-muted">
+        <strong className="text-zinc-300">Tagged</strong> counts every video a
+        name appears on, including the ones still in the queue. Open a player to
+        see how many of those are actually live.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2 border-b border-border pb-4">
@@ -48,9 +57,9 @@ export default async function PlayersPage({
               <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted">
                 <th className="pb-2 pr-4 font-medium">Name</th>
                 <th className="pb-2 pr-4 font-medium">Pos</th>
-                <th className="pb-2 pr-4 font-medium">Videos</th>
+                <th className="pb-2 pr-4 font-medium">Tagged</th>
                 <th className="pb-2 pr-4 font-medium">Status</th>
-                <th className="pb-2 font-medium">Board</th>
+                <th className="pb-2 font-medium">Big Board</th>
               </tr>
             </thead>
             <tbody>

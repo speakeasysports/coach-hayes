@@ -15,6 +15,7 @@ import { copyPage } from "@/lib/content/copy";
 import type {
   ConceptId,
   ConceptInput,
+  PatternPreview,
   PatreonPostId,
   PatreonPostInput,
   PlayerEditableFields,
@@ -121,6 +122,13 @@ export async function saveConceptAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err), ok: false };
   }
+}
+
+export async function previewPatternsAction(
+  patterns: string[],
+): Promise<PatternPreview> {
+  await requireSession();
+  return repo.previewConceptMatches(patterns);
 }
 
 export async function deleteConceptAction(

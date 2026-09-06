@@ -208,6 +208,10 @@ function Row({
         <span className="text-xs text-muted">
           <span className="capitalize">{item.context}</span> · {item.videoCount}{" "}
           {item.videoCount === 1 ? "video" : "videos"} ·{" "}
+          <Link href={item.adminHref} className="underline hover:text-white">
+            {item.kind === "concept" ? "concept" : "player"}
+          </Link>{" "}
+          ·{" "}
           <Link
             href={item.publicHref}
             target="_blank"
